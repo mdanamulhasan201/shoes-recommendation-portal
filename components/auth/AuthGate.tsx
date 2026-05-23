@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { ScannerAppHeader } from './ScannerAppHeader'
 import { useScannerAuth } from './ScannerAuthProvider'
 
 const PUBLIC_PATH_PREFIXES = ['/login', '/api/']
@@ -63,5 +64,10 @@ export function AuthGate ({ children }: { children: ReactNode }) {
     return null
   }
 
-  return <>{children}</>
+  return (
+    <>
+      <ScannerAppHeader />
+      {children}
+    </>
+  )
 }
