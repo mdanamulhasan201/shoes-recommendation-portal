@@ -1,0 +1,458 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@source "../components/signature-ritual";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  /* Space-separated HSL components for `hsl(var(--primary))` (e.g. ScanScreen) */
+  --primary: 153 31% 51%;
+  --primary-foreground: 0 0% 100%;
+  --muted-foreground: 0 0% 45%;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  /* Parity with atelier-signature-ritual/src/styles.css @theme (colors resolve under `.signature-ritual-scope`) */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-ivory: var(--ivory);
+  --color-cognac: var(--cognac);
+  --color-obsidian: var(--obsidian);
+  /* Same as atelier-signature-ritual styles.css @theme — faces load from Google Fonts links in (signature-ritual)/layout.tsx */
+  --font-display: "Cormorant Garamond", "Didot", serif;
+  --font-serif: "Cormorant Garamond", "Didot", serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    --muted-foreground: 0 0% 63%;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@keyframes subtle-breathe {
+  0% {
+    opacity: 0.55;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.75;
+    transform: translateY(-2px);
+  }
+  100% {
+    opacity: 0.55;
+    transform: translateY(0);
+  }
+}
+
+@keyframes login-scan-beam {
+  0% {
+    transform: translateY(0);
+    opacity: 0.15;
+  }
+  45% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(min(62vh, 520px));
+    opacity: 0.15;
+  }
+}
+
+.login-scan-beam {
+  animation: login-scan-beam 4.2s ease-in-out infinite;
+}
+
+@keyframes start-ripple {
+  0% {
+    transform: scale(0.05);
+    opacity: 0.35;
+  }
+  15% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: scale(1.85);
+    opacity: 0;
+  }
+}
+
+.start-ripple-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(circle, rgba(96, 164, 133, 0.45) 0%, rgba(96, 164, 133, 0) 60%);
+  transform: scale(0.05);
+  opacity: 0.35;
+  animation: start-ripple 2.8s ease-out infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.35;
+  }
+  70% {
+    opacity: 0.18;
+  }
+  100% {
+    transform: scale(1.25);
+    opacity: 0;
+  }
+}
+
+/* Kiosk flows — JSX uses these class names; ensure real font rules (not inlines only) */
+.kiosk-display {
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.kiosk-mono {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+/* Kiosk recommendations — product grid skeleton shimmer */
+@keyframes recommendations-shimmer-bg {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.recommendations-shimmer {
+  background: linear-gradient(
+    105deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.04) 35%,
+    rgba(96, 164, 133, 0.18) 50%,
+    rgba(255, 255, 255, 0.07) 65%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 220% 100%;
+  animation: recommendations-shimmer-bg 1.45s ease-in-out infinite;
+}
+
+.recommendations-shimmer-slow {
+  animation-duration: 1.85s;
+}
+
+/* Product column: scrollbar only when content overflows (overflow-y: auto),
+   thin track + thumb — not the default wide OS bar */
+.recommendations-products-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(96, 164, 133, 0.55) rgba(255, 255, 255, 0.06);
+}
+
+.recommendations-products-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.recommendations-products-scroll::-webkit-scrollbar-track {
+  margin-block: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 9999px;
+}
+
+.recommendations-products-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(96, 164, 133, 0.55),
+    rgba(96, 164, 133, 0.35)
+  );
+  border-radius: 9999px;
+}
+
+.recommendations-products-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(96, 164, 133, 0.75);
+}
+
+/* Sidebar profile column — finger scroll anywhere, subtle scrollbar */
+.recommendations-sidebar-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(96, 164, 133, 0.42) transparent;
+}
+
+.recommendations-sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.recommendations-sidebar-scroll::-webkit-scrollbar-track {
+  margin-block: 10px;
+  background: transparent;
+}
+
+.recommendations-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(120, 220, 180, 0.5),
+    rgba(96, 164, 133, 0.28)
+  );
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.recommendations-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 220, 180, 0.65);
+}
+
+@keyframes recommendations-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Signature ritual — scoped to `.signature-ritual-scope` (kiosk keeps :root) */
+/* Fonts: Cormorant Garamond + Inter via Google Fonts (same URLs as atelier __root.tsx) */
+/* Same palette + utilities as atelier-signature-ritual/src/styles.css */
+/* -------------------------------------------------------------------------- */
+
+.signature-ritual-scope {
+  --radius: 0.125rem;
+
+  --obsidian: oklch(0.08 0.005 60);
+  --background: oklch(0.06 0.004 60);
+  --foreground: oklch(0.92 0.01 80);
+  --ivory: oklch(0.94 0.015 85);
+  --gold: oklch(0.78 0.09 75);
+  --gold-soft: oklch(0.62 0.06 70);
+  --cognac: oklch(0.42 0.08 45);
+
+  --card: oklch(0.1 0.005 60);
+  --card-foreground: oklch(0.92 0.01 80);
+  --popover: oklch(0.08 0.005 60);
+  --popover-foreground: oklch(0.92 0.01 80);
+  --primary: oklch(0.78 0.09 75);
+  --primary-foreground: oklch(0.06 0.004 60);
+  --secondary: oklch(0.16 0.008 60);
+  --secondary-foreground: oklch(0.92 0.01 80);
+  --muted: oklch(0.14 0.006 60);
+  --muted-foreground: oklch(0.55 0.015 70);
+  --accent: oklch(0.78 0.09 75);
+  --accent-foreground: oklch(0.06 0.004 60);
+  --destructive: oklch(0.5 0.15 25);
+  --destructive-foreground: oklch(0.94 0.015 85);
+  --border: oklch(0.92 0.01 80 / 0.08);
+  --input: oklch(0.92 0.01 80 / 0.1);
+  --ring: oklch(0.78 0.09 75 / 0.4);
+
+  --gradient-gold: linear-gradient(135deg, oklch(0.78 0.09 75) 0%, oklch(0.55 0.06 60) 100%);
+  --gradient-vignette: radial-gradient(ellipse at center, transparent 0%, oklch(0.04 0.003 60) 85%);
+  --gradient-spotlight: radial-gradient(ellipse at center, oklch(0.78 0.09 75 / 0.08) 0%, transparent 60%);
+  --shadow-deep: 0 40px 120px -20px oklch(0 0 0 / 0.8);
+
+  /* Match atelier `styles.css` @theme */
+  --font-sans: "Inter", "Helvetica Neue", sans-serif;
+
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  background-image: radial-gradient(ellipse at 50% 30%, oklch(0.12 0.01 60) 0%, oklch(0.04 0.003 60) 70%);
+  min-height: 100dvh;
+  color-scheme: dark;
+}
+
+/* Form controls use system UI font by default — inherit atelier Inter like the rest */
+.signature-ritual-scope :where(button, input, textarea, select) {
+  font-family: inherit;
+}
+
+/* Browser autofill paints a pale background — override to match dark atelier fields */
+.signature-ritual-scope input:-webkit-autofill,
+.signature-ritual-scope input:-webkit-autofill:hover,
+.signature-ritual-scope input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--ivory) !important;
+  caret-color: var(--ivory);
+  -webkit-box-shadow: 0 0 0 1000px oklch(0.05 0.004 60 / 0.88) inset !important;
+  box-shadow: 0 0 0 1000px oklch(0.05 0.004 60 / 0.88) inset !important;
+  transition: background-color 99999s ease-out;
+}
+
+.signature-ritual-scope input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ivory) !important;
+  caret-color: var(--ivory);
+  -webkit-box-shadow:
+    0 0 0 1000px oklch(0.05 0.004 60 / 0.88) inset,
+    0 12px 36px -12px oklch(0.78 0.09 75 / 0.45) !important;
+  box-shadow:
+    0 0 0 1000px oklch(0.05 0.004 60 / 0.88) inset,
+    0 12px 36px -12px oklch(0.78 0.09 75 / 0.45) !important;
+  transition: background-color 99999s ease-out;
+}
+
+.signature-ritual-scope * {
+  border-color: var(--border);
+}
+
+@layer utilities {
+  .signature-ritual-scope .font-display {
+    font-family: var(--font-display);
+    font-weight: 300;
+    letter-spacing: 0.01em;
+  }
+  .signature-ritual-scope .font-serif {
+    font-family: var(--font-serif);
+    font-weight: 300;
+    letter-spacing: 0.01em;
+  }
+  .signature-ritual-scope .tracking-atelier {
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    font-weight: 300;
+  }
+  .signature-ritual-scope .tracking-whisper {
+    letter-spacing: 0.6em;
+    text-transform: uppercase;
+    font-size: 0.65rem;
+  }
+
+  .signature-ritual-scope .bg-obsidian {
+    background-color: var(--obsidian);
+  }
+  .signature-ritual-scope .vignette {
+    background: var(--gradient-vignette);
+  }
+  .signature-ritual-scope .spotlight {
+    background: var(--gradient-spotlight);
+  }
+
+  .signature-ritual-scope .grain::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.04;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  @keyframes signature-ritual-shimmer {
+    0%,
+    100% {
+      opacity: 0.3;
+      transform: translateX(-100%);
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  .signature-ritual-scope .animate-shimmer {
+    animation: signature-ritual-shimmer 4s ease-in-out infinite;
+  }
+
+  @keyframes signature-ritual-breathe {
+    0%,
+    100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  .signature-ritual-scope .animate-breathe {
+    animation: signature-ritual-breathe 3.5s ease-in-out infinite;
+  }
+
+  @keyframes signature-ritual-slow-rotate {
+    from {
+      transform: rotateY(0deg);
+    }
+    to {
+      transform: rotateY(360deg);
+    }
+  }
+  .signature-ritual-scope .animate-slow-rotate {
+    animation: signature-ritual-slow-rotate 24s linear infinite;
+  }
+
+  @keyframes signature-ritual-light-sweep {
+    0% {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+    20% {
+      opacity: 1;
+    }
+    80% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+  }
+  .signature-ritual-scope .animate-light-sweep {
+    animation: signature-ritual-light-sweep 3s ease-in-out infinite;
+  }
+}
+
+/* Warenkorb: scroll uses full viewport width (scrollbar at screen edge); cards stay max-w-[720px] inside */
+.kiosk-warenkorb-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+.kiosk-warenkorb-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.kiosk-warenkorb-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.kiosk-warenkorb-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}
