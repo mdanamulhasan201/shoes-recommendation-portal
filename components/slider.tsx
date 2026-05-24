@@ -6,6 +6,7 @@ import leatherMacro from '@/assets/leather-macro.jpg'
 import { KIOSK_SLIDER_FAMILY_SLIDES } from '@/app/lib/kioskQuestionCategories'
 import type { KioskSlideFeatureKey } from '@/app/lib/kioskFeatureAccess'
 import { usePartnerFeatureAccess } from '@/components/auth/PartnerFeatureAccessProvider'
+import { SliderProfileButton } from './auth/SliderProfileButton'
 import { imageSrc } from '@/components/signature-ritual/atelier/imageSrc'
 import { SIGNATURE_RITUAL_BASE } from '@/components/signature-ritual/routes'
 
@@ -106,11 +107,7 @@ export default function Slider () {
   const [isDragging, setIsDragging] = useState(false)
   const [dragDx, setDragDx] = useState(0)
   const len = slides.length
-
-  useEffect(() => {
-    if (active >= len && len > 0) setActive(0)
-    if (len === 0) setActive(0)
-  }, [active, len])
+  const safeActive = len > 0 ? Math.min(active, len - 1) : 0
 
   const particleCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const sectionRef = useRef<HTMLElement | null>(null)
@@ -130,10 +127,10 @@ export default function Slider () {
 
   const onSliderPointerDown = (e: React.PointerEvent<HTMLElement>) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return
-    if ((e.target as HTMLElement).closest('button')) return
+    if ((e.target as HTMLElement).closest('button, a')) return
     dragSessionRef.current = true
     dragStartXRef.current = e.clientX
-    dragActiveRef.current = active
+    dragActiveRef.current = safeActive
     setIsDragging(true)
     setDragDx(0)
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -343,28 +340,30 @@ export default function Slider () {
       window.removeEventListener('resize', onResize)
       cancelAnimationFrame(rafId)
     }
-  }, [active])
+  }, [safeActive])
 
   if (!ready || loading) {
     return (
-      <section className='flex h-dvh min-h-screen items-center justify-center bg-zinc-950 text-white/60'>
+      <section className='relative flex h-dvh min-h-screen items-center justify-center bg-zinc-950 text-white/60'>
         Kategorien werden geladen…
+        <SliderProfileButton />
       </section>
     )
   }
 
   if (len === 0) {
     return (
-      <section className='flex h-dvh min-h-screen items-center justify-center bg-zinc-950 px-6 text-center text-white/70'>
+      <section className='relative flex h-dvh min-h-screen items-center justify-center bg-zinc-950 px-6 text-center text-white/70'>
         <p className='max-w-md text-sm leading-relaxed'>
           Für dieses Partnerkonto sind aktuell keine Schuh-Kategorien freigeschaltet.
           Bitte Feature-Zugriff im Admin prüfen.
         </p>
+        <SliderProfileButton />
       </section>
     )
   }
 
-  const progressPct = ((active + 1) / len) * 100
+  const progressPct = ((safeActive + 1) / len) * 100
   const activeColor = 'rgb(96, 164, 133)'
 
   return (
@@ -393,14 +392,14 @@ export default function Slider () {
       <div
         className={`flex h-full motion-reduce:transition-none ${isDragging ? '' : 'transition-transform duration-500 ease-in-out'}`}
         style={{
-          transform: `translateX(calc(-${active * 100}% + ${dragDx}px))`
+          transform: `translateX(calc(-${safeActive * 100}% + ${dragDx}px))`
         }}
       >
         {slides.map((slide, i) => (
           <div
             key={i}
             className='relative w-full h-full shrink-0 overflow-hidden bg-background'
-            aria-hidden={i !== active}
+            aria-hidden={i !== safeActive}
           >
             <div
               className='absolute inset-0 bg-black/35'
@@ -418,7 +417,7 @@ export default function Slider () {
               }}
             />
 
-            {i === active ? (
+            {i === safeActive ? (
               <canvas
                 ref={particleCanvasRef}
                 aria-hidden='true'
@@ -585,7 +584,7 @@ export default function Slider () {
       {/* Pagination */}
       <div className='absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-30 flex gap-3'>
         {slides.map((_, i) => {
-          const isActive = i === active
+          const isActive = i === safeActive
           return (
             <button
               key={i}
@@ -603,6 +602,8 @@ export default function Slider () {
           )
         })}
       </div>
+
+      <SliderProfileButton />
     </section>
   )
 }
