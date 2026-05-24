@@ -1,3 +1,5 @@
+import type { KioskSlideFeatureKey } from './kioskFeatureAccess'
+
 /**
  * Single source for kiosk shoe families: home-slider presentation +
  * matching `question_category.id` (`qc_selected_category_id` /
@@ -7,6 +9,7 @@
 export const KIOSK_SLIDER_FAMILY_SLIDES = [
   {
     kioskLabel: 'Laufschuhe',
+    featureKey: 'running' satisfies KioskSlideFeatureKey,
     questionCategoryId: 'cmp5lrlzn000tsmvwws4j6jy4',
     primaryLine: 'LAUF',
     highlight: 'SCHUHE',
@@ -15,6 +18,7 @@ export const KIOSK_SLIDER_FAMILY_SLIDES = [
   },
   {
     kioskLabel: 'Skischuhe',
+    featureKey: 'ski' satisfies KioskSlideFeatureKey,
     questionCategoryId: 'cmp5mu1du0035smvwc7c8r76v',
     primaryLine: 'SKI',
     highlight: 'SCHUHE',
@@ -23,6 +27,7 @@ export const KIOSK_SLIDER_FAMILY_SLIDES = [
   },
   {
     kioskLabel: 'Tourenskischuhe',
+    featureKey: 'touringSki' satisfies KioskSlideFeatureKey,
     questionCategoryId: 'cmp8auelm0001kwvw767gacc1',
     primaryLine: 'TOURENSKI',
     highlight: 'SCHUHE',
@@ -32,6 +37,7 @@ export const KIOSK_SLIDER_FAMILY_SLIDES = [
   },
   {
     kioskLabel: 'Outdoorschuhe',
+    featureKey: 'outdoor' satisfies KioskSlideFeatureKey,
     questionCategoryId: 'cmp5m9d65002nsmvw89ystf9y',
     primaryLine: 'OUTDOOR',
     highlight: 'SCHUHE',
@@ -42,6 +48,7 @@ export const KIOSK_SLIDER_FAMILY_SLIDES = [
   
   {
     kioskLabel: 'Sneaker',
+    featureKey: 'everyday' satisfies KioskSlideFeatureKey,
     questionCategoryId: 'cmp8avf100002kwvwgfwowqvp',
     primaryLine: 'ALLTAGS',
     highlight: 'SCHUHE',

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import leatherMacro from '@/assets/leather-macro.jpg'
 import { KIOSK_SLIDER_FAMILY_SLIDES } from '@/app/lib/kioskQuestionCategories'
+import type { KioskSlideFeatureKey } from '@/app/lib/kioskFeatureAccess'
+import { usePartnerFeatureAccess } from '@/components/auth/PartnerFeatureAccessProvider'
 import { imageSrc } from '@/components/signature-ritual/atelier/imageSrc'
 import { SIGNATURE_RITUAL_BASE } from '@/components/signature-ritual/routes'
 
@@ -27,6 +29,7 @@ type Slide = {
    * the START button is clicked so the kiosk knows which questions to load.
    */
   categoryId?: string
+  featureKey: KioskSlideFeatureKey
 }
 
 /** localStorage key the kiosk reads to know which question_category to load. */
@@ -57,9 +60,11 @@ function Chevron ({ direction }: { direction: 'left' | 'right' }) {
 
 export default function Slider () {
   const router = useRouter()
-  const slides = useMemo<Slide[]>(
+  const { ready, loading, canAccessSlide } = usePartnerFeatureAccess()
+
+  const allSlides = useMemo<Slide[]>(
     () => [
-      ...KIOSK_SLIDER_FAMILY_SLIDES.map((row) => ({
+      ...KIOSK_SLIDER_FAMILY_SLIDES.map(row => ({
         primaryLine: row.primaryLine,
         highlight: row.highlight,
         subtitle: row.subtitle,
@@ -67,7 +72,8 @@ export default function Slider () {
           ? { breakAfterPrimary: true as const }
           : {}),
         background: row.background,
-        categoryId: row.questionCategoryId
+        categoryId: row.questionCategoryId,
+        featureKey: row.featureKey
       })),
       {
         primaryLine: 'MASS',
@@ -75,8 +81,8 @@ export default function Slider () {
         subtitle: 'Finde den passenden Schuh in Sekunden.',
         breakAfterPrimary: true,
         background: `url("${imageSrc(leatherMacro)}")`,
-        startPath: SIGNATURE_RITUAL_BASE
-        // MASS SCHUHE: kein category id — geht in das signature-ritual flow.
+        startPath: SIGNATURE_RITUAL_BASE,
+        featureKey: 'mass' as const
       },
       {
         primaryLine: 'SKI',
@@ -84,16 +90,28 @@ export default function Slider () {
         subtitle: 'Finde den passenden Schuh in Sekunden.',
         breakAfterPrimary: true,
         background: 'url("/images/hero.jpg")',
-        startPath: '/ski-rental'
+        startPath: '/ski-rental',
+        featureKey: 'skiRental' as const
       }
     ],
     []
   )
 
+  const slides = useMemo(() => {
+    if (!ready) return []
+    return allSlides.filter(s => canAccessSlide(s.featureKey))
+  }, [allSlides, ready, canAccessSlide])
+
   const [active, setActive] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const [dragDx, setDragDx] = useState(0)
   const len = slides.length
+
+  useEffect(() => {
+    if (active >= len && len > 0) setActive(0)
+    if (len === 0) setActive(0)
+  }, [active, len])
+
   const particleCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const sectionRef = useRef<HTMLElement | null>(null)
   const dragStartXRef = useRef(0)
@@ -327,7 +345,24 @@ export default function Slider () {
     }
   }, [active])
 
-  if (len === 0) return null
+  if (!ready || loading) {
+    return (
+      <section className='flex h-dvh min-h-screen items-center justify-center bg-zinc-950 text-white/60'>
+        Kategorien werden geladen…
+      </section>
+    )
+  }
+
+  if (len === 0) {
+    return (
+      <section className='flex h-dvh min-h-screen items-center justify-center bg-zinc-950 px-6 text-center text-white/70'>
+        <p className='max-w-md text-sm leading-relaxed'>
+          Für dieses Partnerkonto sind aktuell keine Schuh-Kategorien freigeschaltet.
+          Bitte Feature-Zugriff im Admin prüfen.
+        </p>
+      </section>
+    )
+  }
 
   const progressPct = ((active + 1) / len) * 100
   const activeColor = 'rgb(96, 164, 133)'

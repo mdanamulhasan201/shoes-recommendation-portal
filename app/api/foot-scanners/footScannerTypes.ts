@@ -13,6 +13,7 @@ export type FootScannerPartner = {
   email: string
   image: string | null
   name: string
+  role?: string
   busnessName: string
 }
 
