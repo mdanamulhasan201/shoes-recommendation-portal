@@ -37,20 +37,25 @@ export function ShoeDetailFeatureBlocks ({
       }}
       aria-label='Produkthighlights'
     >
-      <div className='mb-6 flex flex-wrap items-center justify-between gap-3'>
-        <div className='flex items-center gap-2'>
-          <span
-            className='h-1.5 w-1.5 shrink-0 rounded-full'
-            style={{
-              background: accentColor,
-              boxShadow: `0 0 10px ${accentColor}`
-            }}
-          />
-          <p className='kiosk-mono text-[10px] font-bold tracking-[0.22em] text-white/50'>
-            FEATURE BLOCKS
-          </p>
+      <div className='mb-6 flex flex-wrap items-end justify-between gap-3'>
+        <div className='min-w-0'>
+          <div className='flex items-center gap-2'>
+            <span
+              className='h-1.5 w-1.5 shrink-0 rounded-full'
+              style={{
+                background: accentColor,
+                boxShadow: `0 0 10px ${accentColor}`
+              }}
+            />
+            <p className='kiosk-mono text-[10px] font-bold tracking-[0.22em] text-white/50'>
+              FEATURE BLOCKS
+            </p>
+          </div>
+          <h2 className='mt-1 text-sm font-semibold leading-snug text-white/90 sm:text-[15px]'>
+            Die Features hinter der Performance
+          </h2>
         </div>
-        <p className='kiosk-mono text-[10px] tracking-[0.22em] text-white/40'>
+        <p className='kiosk-mono shrink-0 text-[10px] tracking-[0.22em] text-white/40'>
           REPEATABLE
         </p>
       </div>
