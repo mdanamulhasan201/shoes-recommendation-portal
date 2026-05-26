@@ -72,7 +72,7 @@ async function getJson<T> (urlPath: string): Promise<T> {
     return data.data
   } catch (e) {
     if (axios.isAxiosError(e)) {
-      const body = e.response?.data as ApiEnvelope | undefined
+      const body = e.response?.data as ApiEnvelope<unknown> | undefined
       if (body?.message?.trim()) throw new Error(body.message.trim())
     }
     if (e instanceof Error) throw e
