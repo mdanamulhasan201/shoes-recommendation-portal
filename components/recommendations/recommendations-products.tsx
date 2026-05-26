@@ -28,6 +28,67 @@ import {
 /*  Helpers (product card only)                                              */
 /* ------------------------------------------------------------------------- */
 
+const BEST_MATCH_MAX = 2
+
+function cardOverallMatchPercent (card: ShoeCard): number {
+  const left = Math.round(card.leftMatch?.percent ?? 0)
+  const right = Math.round(card.rightMatch?.percent ?? 0)
+  return Math.max(left, right)
+}
+
+/** Matching API marks the top pick(s) with `isBestChoice`. */
+function matchingApiUsesBestChoice (cards: ShoeCard[]): boolean {
+  return cards.some((c) => c.isBestChoice === true)
+}
+
+/**
+ * Hero row (max 2): API `isBestChoice` + next cards in rank order when needed.
+ * Legacy (no flagged best): up to two cards with overall match &gt; 90%.
+ */
+function partitionBestAndRest (cards: ShoeCard[]): {
+  best: ShoeCard[]
+  rest: ShoeCard[]
+} {
+  const best: ShoeCard[] = []
+  const used = new Set<string>()
+
+  const tryAdd = (card: ShoeCard) => {
+    if (best.length >= BEST_MATCH_MAX || used.has(card.id)) return
+    best.push(card)
+    used.add(card.id)
+  }
+
+  if (matchingApiUsesBestChoice(cards)) {
+    for (const card of cards) {
+      if (card.isBestChoice) tryAdd(card)
+    }
+    for (const card of cards) {
+      if (best.length >= BEST_MATCH_MAX) break
+      tryAdd(card)
+    }
+  } else {
+    for (const card of cards) {
+      if (cardOverallMatchPercent(card) > 90) tryAdd(card)
+    }
+  }
+
+  const rest = cards.filter((c) => !used.has(c.id))
+  return { best, rest }
+}
+
+function matchBadgeTierForCard (
+  card: ShoeCard,
+  overall: number,
+  apiBestChoiceActive: boolean
+): 'best' | 'performance' | null {
+  if (apiBestChoiceActive) {
+    if (card.isBestChoice) return 'best'
+    if (overall > 80) return 'performance'
+    return null
+  }
+  return overall > 90 ? 'best' : overall > 80 ? 'performance' : null
+}
+
 const formatPriceEur = (
   amount: number | null | undefined
 ): string => {
@@ -254,30 +315,153 @@ function formatCardHeelDrop (raw: string | null | undefined): string {
   return `${t} MM`
 }
 
-function TechSpecPill ({
+const CHIP_LABEL_SHORT: Record<string, string> = {
+  HEELSTRIKE: 'HEEL',
+  OVERPRONATION: 'PRON',
+  'ALL_STRIKE_PATTERNS': 'ALL STRIKE',
+  NEUTRAL: 'NEUTR'
+}
+
+function chipLabelShort (full: string): string {
+  const u = full.trim().toUpperCase()
+  if (!u) return '—'
+  return CHIP_LABEL_SHORT[u] ?? (u.length > 12 ? `${u.slice(0, 11)}…` : u)
+}
+
+function CardChip ({
   icon,
   text,
-  ariaLabel
+  ariaLabel,
+  variant = 'spec'
 }: {
-  icon: ReactNode
+  icon?: ReactNode
   text: string
   ariaLabel: string
+  variant?: 'spec' | 'style'
 }) {
+  const full = text.trim() || '—'
+  const short = chipLabelShort(full)
+  const isStyle = variant === 'style'
   return (
     <div
-      className='inline-flex max-w-full items-center gap-1 rounded-full border border-[rgba(96,164,133,0.55)] bg-transparent px-2 py-1 sm:px-2.5'
+      className='inline-flex shrink-0 isolate items-center gap-1 whitespace-nowrap rounded-full border border-[rgba(96,164,133,0.55)] bg-[rgba(8,12,14,0.92)] px-2 py-1 @[24rem]/card:px-2.5'
       style={{
         boxShadow: 'inset 0 0 0 1px rgba(96,164,133,0.06)'
       }}
       role='group'
       aria-label={ariaLabel}
+      title={full !== short ? full : undefined}
     >
-      <span className='shrink-0 text-[rgb(96,164,133)]' aria-hidden>
-        {icon}
+      {icon ? (
+        <span className='shrink-0 text-[rgb(96,164,133)] [&_svg]:h-[11px] [&_svg]:w-[11px]' aria-hidden>
+          {icon}
+        </span>
+      ) : isStyle ? (
+        <span className='shrink-0 text-[10px] text-[rgb(96,164,133)]' aria-hidden>
+          ✓
+        </span>
+      ) : null}
+      <span
+        className='kiosk-mono text-[8px] font-bold uppercase tracking-[0.05em] @[24rem]/card:hidden'
+        style={{ color: KIOSK_GREEN_ON_DARK }}
+      >
+        {short}
       </span>
-      <span className='kiosk-mono min-w-0 truncate text-[9px] font-bold uppercase tracking-[0.06em] sm:text-[10px]' style={{ color: KIOSK_GREEN_ON_DARK }}>
-        {text.trim() || '—'}
+      <span
+        className='kiosk-mono hidden text-[8px] font-bold uppercase tracking-[0.05em] @[24rem]/card:inline @[24rem]/card:text-[9px]'
+        style={{ color: KIOSK_GREEN_ON_DARK }}
+      >
+        {full}
       </span>
+    </div>
+  )
+}
+
+/** Spec + style chips in one flow — uses card width (@container) to stay on fewer rows. */
+function CardAttributeChips ({
+  weightText,
+  heelText,
+  strikeText,
+  archText,
+  surfaceText,
+  styleTags,
+  icons
+}: {
+  weightText: string
+  heelText: string
+  strikeText: string
+  archText: string
+  surfaceText: string
+  styleTags: string[]
+  icons: {
+    weight: ReactNode
+    heel: ReactNode
+    strike: ReactNode
+    arch: ReactNode
+    terrain: ReactNode
+  }
+}) {
+  const specs: { key: string; icon: ReactNode; text: string; aria: string }[] = []
+  if (weightText) {
+    specs.push({
+      key: 'w',
+      icon: icons.weight,
+      text: weightText,
+      aria: `Gewicht ${weightText}`
+    })
+  }
+  if (heelText) {
+    specs.push({
+      key: 'heel',
+      icon: icons.heel,
+      text: heelText,
+      aria: `Heel drop ${heelText}`
+    })
+  }
+  if (strikeText) {
+    specs.push({
+      key: 'strike',
+      icon: icons.strike,
+      text: strikeText,
+      aria: `Strike ${strikeText}`
+    })
+  }
+  if (archText) {
+    specs.push({
+      key: 'arch',
+      icon: icons.arch,
+      text: archText,
+      aria: `Fußgewölbe ${archText}`
+    })
+  }
+  if (surfaceText) {
+    specs.push({
+      key: 'surface',
+      icon: icons.terrain,
+      text: surfaceText.toUpperCase(),
+      aria: `Surface ${surfaceText}`
+    })
+  }
+
+  if (specs.length === 0 && styleTags.length === 0) return null
+
+  return (
+    <div
+      className='flex w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1.5'
+      role='list'
+      aria-label='Schuhmerkmale'
+    >
+      {specs.map((s) => (
+        <CardChip key={s.key} icon={s.icon} text={s.text} ariaLabel={s.aria} />
+      ))}
+      {styleTags.map((tag) => (
+        <CardChip
+          key={`style-${tag}`}
+          text={tag}
+          ariaLabel={tag}
+          variant='style'
+        />
+      ))}
     </div>
   )
 }
@@ -526,11 +710,13 @@ function ShoeImageSlider ({
 function ShoeCardTile ({
   card,
   detailHref,
-  cardIndex
+  cardIndex,
+  apiBestChoiceActive
 }: {
   card: ShoeCard
   detailHref: string | null
   cardIndex: number
+  apiBestChoiceActive: boolean
 }) {
   const router = useRouter()
   const leftPercent = Math.round(card.leftMatch?.percent ?? 0)
@@ -544,9 +730,7 @@ function ShoeCardTile ({
 
   const weightText = formatCardWeightGrams(card.weight)
   const heelText = formatCardHeelDrop(card.heel_drop)
-  const strikeRaw =
-    formatStrikePatternLabel(card.stacke_pattern) ||
-    joinDetailList(card.running_style)
+  const strikeRaw = formatStrikePatternLabel(card.stacke_pattern)
   const strikeText = strikeRaw ? strikeRaw.toUpperCase() : ''
   const archText = formatArchOfFootList(card.arch_of_foot)
   const surfaceText = joinDetailList(card.surface)
@@ -581,12 +765,14 @@ function ShoeCardTile ({
     if (detailHref) router.push(detailHref)
   }
 
-  /** >90: best · >80: performance (90 stays performance; 91+ best). */
-  const matchBadgeTier: 'best' | 'performance' | null =
-    overall > 90 ? 'best' : overall > 80 ? 'performance' : null
+  const matchBadgeTier = matchBadgeTierForCard(
+    card,
+    overall,
+    apiBestChoiceActive
+  )
 
   const shellClass =
-    'group relative flex h-fit w-full flex-col overflow-hidden rounded-3xl text-left transition-transform duration-300 hover:-translate-y-0.5'
+    '@container/card group relative flex h-fit w-full flex-col overflow-hidden rounded-3xl text-left transition-transform duration-300 hover:-translate-y-0.5'
   const shellStyle: CSSProperties = {
     background:
       'linear-gradient(165deg, rgba(14,18,22,0.98) 0%, rgba(8,10,14,0.99) 55%, rgba(5,6,10,1) 100%)',
@@ -698,7 +884,7 @@ function ShoeCardTile ({
         />
       </div>
 
-      <div className='relative z-10 -mt-2 flex flex-col gap-3 px-4 pb-4 pt-1'>
+      <div className='relative z-10 -mt-2 flex flex-col gap-2.5 px-4 pb-4 pt-1 @[22rem]/card:gap-3'>
         <p className='kiosk-mono text-[9px] leading-relaxed tracking-[0.18em] text-white/45 sm:text-[10px]'>
           {metaLine}
         </p>
@@ -720,53 +906,21 @@ function ShoeCardTile ({
           <FootMatchPill side='R' percent={rightPercent} />
         </div>
 
-        <div className='flex flex-wrap gap-2'>
-          <TechSpecPill
-            icon={wIc}
-            text={weightText}
-            ariaLabel={`Gewicht ${weightText || 'unbekannt'}`}
-          />
-          <TechSpecPill
-            icon={boltIc}
-            text={heelText || '—'}
-            ariaLabel={`Heel drop ${heelText || 'unbekannt'}`}
-          />
-          <TechSpecPill
-            icon={strikeIc}
-            text={strikeText || '—'}
-            ariaLabel={`Strike ${strikeText || 'unbekannt'}`}
-          />
-          <TechSpecPill
-            icon={archIc}
-            text={archText || '—'}
-            ariaLabel={`Fußgewölbe ${archText || 'unbekannt'}`}
-          />
-          <TechSpecPill
-            icon={terrainIc}
-            text={surfaceText ? surfaceText.toUpperCase() : '—'}
-            ariaLabel={`Surface ${surfaceText || 'unbekannt'}`}
-          />
-        </div>
-
-        {styleTags.length > 0 ? (
-          <div className='flex flex-wrap gap-2'>
-            {styleTags.map((tag) => (
-              <span
-                key={tag}
-                className='kiosk-mono inline-flex items-center gap-1 rounded-full border bg-transparent px-2.5 py-1 text-[8px] font-bold uppercase tracking-wider'
-                style={{
-                  borderColor: KIOSK_SIDEBAR_GREEN,
-                  color: KIOSK_GREEN_ON_DARK
-                }}
-              >
-                <span className='text-[rgb(96,164,133)]' aria-hidden>
-                  ✓
-                </span>
-                {tag}
-              </span>
-            ))}
-          </div>
-        ) : null}
+        <CardAttributeChips
+          weightText={weightText}
+          heelText={heelText || '—'}
+          strikeText={strikeText || '—'}
+          archText={archText}
+          surfaceText={surfaceText}
+          styleTags={styleTags}
+          icons={{
+            weight: wIc,
+            heel: boltIc,
+            strike: strikeIc,
+            arch: archIc,
+            terrain: terrainIc
+          }}
+        />
 
         <div className='flex items-center justify-between gap-3 pt-1'>
           <div className='flex min-w-0 flex-1 items-center gap-1.5'>
@@ -927,6 +1081,34 @@ export function RecommendationsProducts ({
   const showSkeletons = loading && cards.length === 0
   const showRefreshShimmer = loading && cards.length > 0
 
+  const { best: bestCards, rest: restCards } = useMemo(
+    () => partitionBestAndRest(cards),
+    [cards]
+  )
+
+  const apiBestChoiceActive = useMemo(
+    () => matchingApiUsesBestChoice(cards),
+    [cards]
+  )
+
+  const detailHrefFor = useCallback(
+    (cardId: string) =>
+      scannerId ? `/kiosk/recommendations/${cardId}/${scannerId}` : null,
+    [scannerId]
+  )
+
+  const gridFade = showRefreshShimmer ? 'opacity-75' : 'opacity-100'
+
+  const renderCard = (card: ShoeCard, cardIndex: number) => (
+    <ShoeCardTile
+      key={card.id}
+      card={card}
+      cardIndex={cardIndex}
+      detailHref={detailHrefFor(card.id)}
+      apiBestChoiceActive={apiBestChoiceActive}
+    />
+  )
+
   return (
     <div className='relative w-full'>
       {showRefreshShimmer ? (
@@ -939,35 +1121,71 @@ export function RecommendationsProducts ({
       ) : null}
 
       <div
-        className={`grid w-full grid-cols-1 items-start gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3 transition-opacity duration-300 ${
-          showRefreshShimmer ? 'opacity-75' : 'opacity-100'
-        }`}
+        className={`flex w-full flex-col gap-5 sm:gap-6 transition-opacity duration-300 ${gridFade}`}
       >
-        {showSkeletons
-          ? Array.from({ length: RECOMMENDATIONS_PAGE_SIZE }, (_, i) => (
-              <ShoeCardSkeleton key={i} index={i} />
-            ))
-          : cards.map((card, cardIndex) => (
-              <ShoeCardTile
-                key={card.id}
-                card={card}
-                cardIndex={cardIndex}
-                detailHref={
-                  scannerId ? `/kiosk/recommendations/${card.id}/${scannerId}` : null
-                }
-              />
-            ))}
+        {showSkeletons ? (
+          <>
+            <div className='grid w-full grid-cols-1 items-start gap-3 sm:grid-cols-2 sm:gap-4'>
+              {Array.from({ length: BEST_MATCH_MAX }, (_, i) => (
+                <ShoeCardSkeleton key={`best-sk-${i}`} index={i} />
+              ))}
+            </div>
+            <div className='grid w-full grid-cols-1 items-start gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3'>
+              {Array.from(
+                { length: Math.max(0, RECOMMENDATIONS_PAGE_SIZE - BEST_MATCH_MAX) },
+                (_, i) => (
+                  <ShoeCardSkeleton key={`rest-sk-${i}`} index={i + BEST_MATCH_MAX} />
+                )
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            {bestCards.length > 0 ? (
+              <section aria-label='Best match'>
+                <h2
+                  className='kiosk-mono mb-3 text-[10px] font-extrabold uppercase tracking-[0.2em] text-white/50 sm:mb-4 sm:text-[11px]'
+                  style={{ color: KIOSK_GREEN_ON_DARK }}
+                >
+                  Best match
+                </h2>
+                <div className='grid w-full grid-cols-1 items-start gap-3 sm:grid-cols-2 sm:gap-4'>
+                  {bestCards.map((card, i) => renderCard(card, i))}
+                </div>
+              </section>
+            ) : null}
 
-        {!cards.length && !loading ? (
-          <div
-            className='rounded-2xl p-8 text-center text-sm text-white/55 md:col-span-2 xl:col-span-3'
-            style={{ border: '1px dashed rgba(255,255,255,0.25)' }}
-          >
-            {scannerId
-              ? 'Keine passenden Schuhe gefunden — passe die Daten oder die Kategorie an.'
-              : 'Kein Scan vorhanden. Klicke auf SCAN SETUP oder führe einen Scan durch.'}
-          </div>
-        ) : null}
+            {restCards.length > 0 ? (
+              <section
+                aria-label={
+                  bestCards.length > 0 ? 'Weitere Empfehlungen' : 'Empfehlungen'
+                }
+              >
+                {bestCards.length > 0 ? (
+                  <h2 className='kiosk-mono mb-3 text-[10px] font-extrabold uppercase tracking-[0.2em] text-white/45 sm:mb-4 sm:text-[11px]'>
+                    Weitere Empfehlungen
+                  </h2>
+                ) : null}
+                <div className='grid w-full grid-cols-1 items-start gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3'>
+                  {restCards.map((card, i) =>
+                    renderCard(card, bestCards.length + i)
+                  )}
+                </div>
+              </section>
+            ) : null}
+
+            {!cards.length && !loading ? (
+              <div
+                className='rounded-2xl p-8 text-center text-sm text-white/55'
+                style={{ border: '1px dashed rgba(255,255,255,0.25)' }}
+              >
+                {scannerId
+                  ? 'Keine passenden Schuhe gefunden — passe die Daten oder die Kategorie an.'
+                  : 'Kein Scan vorhanden. Klicke auf SCAN SETUP oder führe einen Scan durch.'}
+              </div>
+            ) : null}
+          </>
+        )}
       </div>
 
       <RecommendationsLoadMore
