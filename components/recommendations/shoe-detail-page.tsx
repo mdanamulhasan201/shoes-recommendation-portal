@@ -500,13 +500,13 @@ export function ShoeDetailPage ({
   const apiRightP = scanMatch?.right_foot?.percent ?? 0
   const apiConfidence = scanMatch?.confidence_percent ?? 0
 
-  /** Details page: always server score — no client preview (avoids 81% while drag → 83% on release). */
+  const fitScorePending =
+    fitRefetching || Math.abs(ballRegulatorOffsetMm - apiBallOffsetMm) > 0.05
+
   const leftP = apiLeftP
   const rightP = apiRightP
   const confidence = apiConfidence
   const fitSliderPct = Math.max(0, Math.min(100, (leftP + rightP) / 2))
-  const fitScorePending =
-    fitRefetching || Math.abs(ballRegulatorOffsetMm - apiBallOffsetMm) > 0.05
 
   const regulatorBallMm = useMemo(() => {
     const lIdx =
@@ -671,9 +671,7 @@ export function ShoeDetailPage ({
   }
 
   const perfectEuLabel = formatEuSizeLabel(
-    detail.identified_size_value ??
-      scanMatch?.left_foot?.value ??
-      sizes.find(s => s.id === selectedSizeId)?.value
+    detail.identified_size_value ?? scanMatch?.left_foot?.value
   )
   const leftFootSizeLabel = `L: ${formatEuSizeLabel(scanMatch?.left_foot?.value)}`
   const rightFootSizeLabel = `R: ${formatEuSizeLabel(scanMatch?.right_foot?.value)}`
