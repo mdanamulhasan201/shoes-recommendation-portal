@@ -122,8 +122,8 @@ export function ShoeDetailPage ({
   useEffect(() => {
     let cancelled = false
     hadDetailRef.current = false
-    setFootScanHydrated(false)
     queueMicrotask(() => {
+      setFootScanHydrated(false)
       void (async () => {
         const flow = readKioskFlowState()
         const draft = flow.footMeasurementDraft
@@ -263,13 +263,6 @@ export function ShoeDetailPage ({
     applyDetailPayload,
     mergeScanMatchFromApi
   ])
-
-  useEffect(() => {
-    if (!hadDetailRef.current) return
-    if (Math.abs(ballRegulatorOffsetMm - apiBallOffsetMm) > 0.05) {
-      setFitRefetching(true)
-    }
-  }, [ballRegulatorOffsetMm, apiBallOffsetMm])
 
   useEffect(() => {
     queueMicrotask(() => setAddToCartError(null))

@@ -76,17 +76,11 @@ function partitionBestAndRest (cards: ShoeCard[]): {
   return { best, rest }
 }
 
-function matchBadgeTierForCard (
-  card: ShoeCard,
-  overall: number,
-  apiBestChoiceActive: boolean
-): 'best' | 'performance' | null {
-  if (apiBestChoiceActive) {
-    if (card.isBestChoice) return 'best'
-    if (overall > 80) return 'performance'
-    return null
-  }
-  return overall > 90 ? 'best' : overall > 80 ? 'performance' : null
+/** Ribbon tier tied to overall foot match % (max of L/R). */
+function matchBadgeTierForCard (overall: number): 'best' | 'performance' | null {
+  if (overall >= 95) return 'best'
+  if (overall > 80) return 'performance'
+  return null
 }
 
 const formatPriceEur = (
@@ -710,13 +704,11 @@ function ShoeImageSlider ({
 function ShoeCardTile ({
   card,
   detailHref,
-  cardIndex,
-  apiBestChoiceActive
+  cardIndex
 }: {
   card: ShoeCard
   detailHref: string | null
   cardIndex: number
-  apiBestChoiceActive: boolean
 }) {
   const router = useRouter()
   const leftPercent = Math.round(card.leftMatch?.percent ?? 0)
@@ -765,11 +757,7 @@ function ShoeCardTile ({
     if (detailHref) router.push(detailHref)
   }
 
-  const matchBadgeTier = matchBadgeTierForCard(
-    card,
-    overall,
-    apiBestChoiceActive
-  )
+  const matchBadgeTier = matchBadgeTierForCard(overall)
 
   const shellClass =
     '@container/card group relative flex h-fit w-full flex-col overflow-hidden rounded-3xl text-left transition-transform duration-300 hover:-translate-y-0.5'
@@ -1086,11 +1074,6 @@ export function RecommendationsProducts ({
     [cards]
   )
 
-  const apiBestChoiceActive = useMemo(
-    () => matchingApiUsesBestChoice(cards),
-    [cards]
-  )
-
   const detailHrefFor = useCallback(
     (cardId: string) =>
       scannerId ? `/kiosk/recommendations/${cardId}/${scannerId}` : null,
@@ -1105,7 +1088,6 @@ export function RecommendationsProducts ({
       card={card}
       cardIndex={cardIndex}
       detailHref={detailHrefFor(card.id)}
-      apiBestChoiceActive={apiBestChoiceActive}
     />
   )
 

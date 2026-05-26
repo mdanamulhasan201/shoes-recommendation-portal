@@ -136,8 +136,6 @@ export function ShoeDetailInfoColumn ({
     strike !== '—' ? ` (${strike})` : ''
   }. Scan-Empfehlung mit ${Math.round(confidencePercent)} % Übereinstimmung."`
 
-  const selectedRow = sizes.find(s => s.id === selectedSizeId)
-
   return (
     <div className='flex min-h-0 min-w-0 flex-col gap-4 sm:gap-5'>
       <div>
@@ -192,6 +190,31 @@ export function ShoeDetailInfoColumn ({
           </span>
         </div>
         <p className='text-sm italic leading-relaxed text-white/75'>{expertQuote}</p>
+      </div>
+
+      <div>
+        <label
+          htmlFor='shoe-detail-size'
+          className='kiosk-mono mb-2 block text-[10px] tracking-[0.22em] text-white/45'
+        >
+          GRÖSSE WÄHLEN
+        </label>
+        <select
+          id='shoe-detail-size'
+          value={selectedSizeId ?? ''}
+          onChange={e => onSelectSizeId(e.target.value)}
+          className='w-full cursor-pointer appearance-none rounded-xl border border-white/18 bg-[#0c0e12] px-4 py-3.5 text-sm font-semibold text-white outline-none focus:border-[rgb(96,164,133)] focus:ring-1 focus:ring-[rgb(96,164,133)]'
+        >
+          {sizes.length === 0 ? (
+            <option value=''>Keine Größen</option>
+          ) : (
+            sizes.map(row => (
+              <option key={row.id} value={row.id}>
+                {formatEuSizeLabel(row.value)}
+              </option>
+            ))
+          )}
+        </select>
       </div>
 
       <div
@@ -254,39 +277,6 @@ export function ShoeDetailInfoColumn ({
         <p className='mt-2 text-[11px] text-white/45'>
           {leftFootSizeLabel} ({leftFootPercent}%) · {rightFootSizeLabel} ({rightFootPercent}%)
         </p>
-      </div>
-
-      <div>
-        <label
-          htmlFor='shoe-detail-size'
-          className='kiosk-mono mb-2 block text-[10px] tracking-[0.22em] text-white/45'
-        >
-          GRÖSSE WÄHLEN
-        </label>
-        <select
-          id='shoe-detail-size'
-          value={selectedSizeId ?? ''}
-          onChange={e => onSelectSizeId(e.target.value)}
-          className='w-full cursor-pointer appearance-none rounded-xl border border-white/18 bg-[#0c0e12] px-4 py-3.5 text-sm font-semibold text-white outline-none focus:border-[rgb(96,164,133)] focus:ring-1 focus:ring-[rgb(96,164,133)]'
-        >
-          {sizes.length === 0 ? (
-            <option value=''>Keine Größen</option>
-          ) : (
-            sizes.map(row => (
-              <option key={row.id} value={row.id}>
-                {formatEuSizeLabel(row.value)}
-                {row.insoleMinMm != null && row.insoleMaxMm != null
-                  ? ` · ${row.insoleMinMm}–${row.insoleMaxMm} mm`
-                  : ''}
-              </option>
-            ))
-          )}
-        </select>
-        {selectedRow ? (
-          <p className='mt-1.5 text-[11px] text-white/40'>
-            Tabelle: {selectedRow.table_name ?? '—'}
-          </p>
-        ) : null}
       </div>
 
       <div className='flex flex-col gap-3 sm:flex-row'>
