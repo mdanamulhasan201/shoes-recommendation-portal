@@ -3,8 +3,12 @@ import { apiUrl } from './apiConfig'
 
 export type PostAddToCardBody = {
   customerId: string
+  /** admin_stock */
   reference_shoe_size_id: string
+  /** admin_stock — selected colorway CRM id */
+  reference_shoe_color_id?: string | null
   quantity: number
+  type?: 'admin_stock' | 'partner_stock'
 }
 
 export type PostAddToCardData = {
@@ -13,7 +17,10 @@ export type PostAddToCardData = {
   reference_shoe_id?: string
   quantity?: number
   size?: number
+  color?: string | null
   reference_shoe_size_id?: string
+  reference_shoe_color_id?: string | null
+  type?: string | null
   createdAt?: string
 }
 
@@ -99,10 +106,19 @@ export type GetAllMyCardsItem = {
   /** Cart line id — used as `cardId` for PATCH update-card-quantity. */
   id?: string | number | null
   quantity?: number
+  type?: string | null
+  color?: string | null
   reference_shoe_size_id?: string | null
+  reference_shoe_color_id?: string | null
   reference_shoe_size?: {
     id?: string | null
     value?: number | null
+  } | null
+  reference_shoe_color?: {
+    id?: string | null
+    name?: string | null
+    code?: string | null
+    image?: string | null
   } | null
   reference_shoe?: GetAllMyCardsReferenceShoe | null
 }
@@ -235,14 +251,36 @@ export function mapCardApiItemToCartLine(row: GetAllMyCardsItem): CartLine | nul
   const cat = shoe.category?.name?.trim()
   const tagline = [brand, cat].filter(Boolean).join(' · ') || null
 
+  const refColorId =
+    typeof row.reference_shoe_color?.id === 'string'
+      ? row.reference_shoe_color.id
+      : typeof row.reference_shoe_color_id === 'string'
+        ? row.reference_shoe_color_id
+        : undefined
+
+  const colorName =
+    (typeof row.reference_shoe_color?.name === 'string' &&
+    row.reference_shoe_color.name.trim()
+      ? row.reference_shoe_color.name.trim()
+      : null) ||
+    (typeof row.color === 'string' && row.color.trim() ? row.color.trim() : null)
+
+  const colorImage =
+    typeof row.reference_shoe_color?.image === 'string' &&
+    row.reference_shoe_color.image.trim()
+      ? row.reference_shoe_color.image.trim()
+      : null
+
   return {
     cardId,
     shoeId: shoeIdNorm,
     name: typeof shoe.name === 'string' && shoe.name.trim() ? shoe.name : 'Schuh',
-    image,
+    image: colorImage || image,
     price,
     size: eu,
+    color: colorName,
     referenceShoeSizeId: refSid ?? undefined,
+    referenceShoeColorId: refColorId ?? undefined,
     quantity,
     tagline
   }

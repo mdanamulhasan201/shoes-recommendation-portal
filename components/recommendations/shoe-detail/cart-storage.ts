@@ -8,8 +8,12 @@ export type CartLine = {
   image: string | null
   price: string
   size: string | number | null
+  /** Colorway display name snapshot. */
+  color?: string | null
   /** Matches POST `reference_shoe_size_id`. */
   referenceShoeSizeId?: string | null
+  /** Matches POST `reference_shoe_color_id` (admin_stock). */
+  referenceShoeColorId?: string | null
   /** Default 1 for lines stored before quantity was added. */
   quantity: number
   tagline?: string | null
@@ -30,6 +34,7 @@ function normalizeCartLine (raw: unknown): CartLine | null {
       ? Math.min(999, Math.floor(q))
       : 1
   const refSid = o.referenceShoeSizeId
+  const refCid = o.referenceShoeColorId
   const cardIdRaw = o.cardId
   return {
     cardId:
@@ -48,8 +53,16 @@ function normalizeCartLine (raw: unknown): CartLine | null {
         : typeof o.size === 'string' && o.size.trim()
           ? o.size.trim()
           : null,
+    color:
+      typeof o.color === 'string' && o.color.trim()
+        ? o.color.trim()
+        : o.color === null
+          ? null
+          : undefined,
     referenceShoeSizeId:
       typeof refSid === 'string' ? refSid : refSid === null ? null : undefined,
+    referenceShoeColorId:
+      typeof refCid === 'string' ? refCid : refCid === null ? null : undefined,
     quantity,
     tagline:
       typeof o.tagline === 'string' ? o.tagline : o.tagline === null ? null : undefined

@@ -569,6 +569,13 @@ export function ShoeDetailPage ({
       return
     }
 
+    const colorwaysList = (detail.reference_shoe_colors ?? []).filter(c => c?.id)
+    const selectedColor = colorwaysList.find(c => c.id === selectedColorwayId)
+    if (colorwaysList.length > 0 && !selectedColor?.id) {
+      setAddToCartError('Bitte eine Farbe wählen.')
+      return
+    }
+
     const flow = readKioskFlowState()
     const pid = flow.profile?.id
     const customerId =
@@ -587,7 +594,11 @@ export function ShoeDetailPage ({
     try {
       const addResp = await postAddToCard({
         customerId,
+        type: 'admin_stock',
         reference_shoe_size_id: sizeRow.id,
+        ...(selectedColor?.id
+          ? { reference_shoe_color_id: selectedColor.id }
+          : {}),
         quantity: 1
       })
       const serverCardId =
@@ -597,18 +608,23 @@ export function ShoeDetailPage ({
 
       const lines = readCart()
       const sid = sizeRow.id
-      const idx = lines.findIndex(
-        l =>
+      const cid = selectedColor?.id ?? null
+      const idx = lines.findIndex(l => {
+        const sameSize =
           (l.referenceShoeSizeId && l.referenceShoeSizeId === sid) ||
           (!l.referenceShoeSizeId &&
             l.shoeId === detail.id &&
             sizeValueKey(l.size) === sizeValueKey(sizeRow.value))
-      )
+        if (!sameSize) return false
+        const lineColorId = l.referenceShoeColorId ?? null
+        return lineColorId === cid
+      })
       const tagline =
         detail.mission?.trim() ||
         joinDetailList(detail.running_style) ||
         detail.shoe_type?.replace(/_/g, ' ') ||
         null
+      const colorLabel = selectedColor?.name?.trim() || null
 
       if (idx >= 0) {
         const prev = lines[idx]
@@ -616,6 +632,8 @@ export function ShoeDetailPage ({
           ...prev,
           ...(serverCardId ? { cardId: serverCardId } : {}),
           referenceShoeSizeId: sid,
+          referenceShoeColorId: cid,
+          color: colorLabel ?? prev.color,
           quantity: Math.min(999, prev.quantity + 1),
           image: currentImage ?? prev.image,
           price: detail.prise ?? prev.price,
@@ -631,7 +649,9 @@ export function ShoeDetailPage ({
           image: currentImage,
           price: detail.prise ?? '',
           size: sizeRow.value,
+          color: colorLabel,
           referenceShoeSizeId: sid,
+          referenceShoeColorId: cid,
           quantity: 1,
           tagline
         }
@@ -642,8 +662,9 @@ export function ShoeDetailPage ({
 
       const displayName = (detail.name ?? detail.sku ?? 'Artikel').trim()
       const euLabel = formatEuSizeLabel(sizeRow.value)
+      const toastParts = [displayName, euLabel, colorLabel].filter(Boolean)
       toast.success('Im Warenkorb', {
-        description: euLabel ? `${displayName} · ${euLabel}` : displayName,
+        description: toastParts.join(' · '),
         id: 'kiosk-add-cart',
         duration: 3200
       })
@@ -655,7 +676,7 @@ export function ShoeDetailPage ({
     } finally {
       setAddToCartSubmitting(false)
     }
-  }, [detail, currentImage, selectedSizeId, syncCartBadgeCount])
+  }, [detail, currentImage, selectedSizeId, selectedColorwayId, syncCartBadgeCount])
 
   if (loading) {
     return <ShoeDetailLoading />
