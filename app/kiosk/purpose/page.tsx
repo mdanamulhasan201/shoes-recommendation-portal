@@ -743,17 +743,22 @@ function ObjectiveHint ({ text }: { text: string }) {
   return (
     <span
       ref={wrapRef}
-      className='relative inline-flex shrink-0 align-middle'
+      className='relative ml-[0.35em] inline-flex shrink-0 align-middle'
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
       <button
         type='button'
-        aria-label='Zusatzinformation zur Frage'
+        aria-label='Zusatzinformation'
         aria-expanded={open}
         aria-describedby={open ? tooltipId : undefined}
-        onClick={() => setOpen((v) => !v)}
-        className='kiosk-mono flex size-9 items-center justify-center rounded-full text-sm font-bold leading-none transition-opacity hover:opacity-90 sm:size-10 sm:text-base'
+        onClick={(e) => {
+          e.stopPropagation()
+          e.preventDefault()
+          setOpen((v) => !v)
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        className='kiosk-mono flex size-7 items-center justify-center rounded-full text-sm font-bold leading-none transition-opacity hover:opacity-90 sm:size-8 sm:text-base'
         style={{
           color: 'rgba(5, 5, 5, 0.92)',
           background: 'rgba(96, 164, 133, 0.72)',
@@ -766,9 +771,16 @@ function ObjectiveHint ({ text }: { text: string }) {
         <span
           id={tooltipId}
           role='tooltip'
-          className='kiosk-mono absolute left-1/2 top-[calc(100%+10px)] z-50 w-[min(18rem,calc(100vw-2rem))] -translate-x-1/2 rounded-xl border border-white/12 bg-[#1a1a1a] px-3 py-2.5 text-left text-[11px] font-normal leading-snug tracking-normal text-white/85 shadow-lg sm:text-xs'
+          className='pointer-events-none absolute left-1/2 top-full z-[80] mt-2 -translate-x-1/2'
         >
-          {trimmed}
+          {/* Normal tooltip arrow — centered under the ? */}
+          <span
+            aria-hidden
+            className='absolute left-1/2 top-0 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 border-l border-t border-white/15 bg-[#1c1c1c]'
+          />
+          <span className='kiosk-mono relative block w-max max-w-[min(16rem,calc(100vw-2rem))] rounded-lg border border-white/15 bg-[#1c1c1c] px-3 py-2 text-left text-[12px] font-normal leading-snug tracking-normal text-white/90 shadow-lg sm:text-[13px]'>
+            {trimmed}
+          </span>
         </span>
       ) : null}
     </span>
@@ -802,11 +814,17 @@ function QuestionBlock ({
       : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
 
   const questionObjective = (question.objective ?? '').trim()
+  const hasObjectiveHint = questionObjective.length > 0
+  // When help tip exists, drop the trailing punctuation "?" so the green
+  // hint icon replaces it. Otherwise keep the original question text as-is.
+  const questionLabel = hasObjectiveHint
+    ? (question.text ?? '').replace(/\s*\?\s*$/u, '').trimEnd() || ' '
+    : question.text || ' '
 
   return (
     <>
       <h2
-        className='kiosk-display mx-auto flex max-w-[min(100%,52rem)] flex-wrap items-center justify-center gap-x-3 gap-y-2 px-2 text-center [overflow-wrap:anywhere] hyphens-auto'
+        className='kiosk-display mx-auto max-w-[min(100%,52rem)] px-2 text-center [overflow-wrap:anywhere] hyphens-auto'
         style={{
           fontSize: 'clamp(1.05rem, 3.6vw + 0.35rem, 2.65rem)',
           fontWeight: 800,
@@ -817,8 +835,12 @@ function QuestionBlock ({
           hyphenateCharacter: '‐'
         }}
       >
-        <span className='[overflow-wrap:anywhere]'>{question.text || ' '}</span>
-        {questionObjective ? <ObjectiveHint text={questionObjective} /> : null}
+        <span className='[overflow-wrap:anywhere]'>
+          {questionLabel}
+          {hasObjectiveHint ? (
+            <ObjectiveHint text={questionObjective} />
+          ) : null}
+        </span>
       </h2>
 
       <div
@@ -828,13 +850,21 @@ function QuestionBlock ({
         {options.map(o => {
           const isSelected = pickedOptionId === o.id
           const label = (o.text ?? '').trim()
-          const sub = (o.objective ?? '').trim()
+          const optionObjective = (o.objective ?? '').trim()
+          const hasOptionHint = optionObjective.length > 0
           return (
-            <button
+            <div
               key={o.id}
-              type='button'
+              role='button'
+              tabIndex={0}
               onClick={() => onPick(o.id)}
-              className='relative flex min-h-0 min-w-0 w-full flex-col items-center justify-center overflow-hidden rounded-[1.2rem] px-4 py-8 text-center transition-transform duration-200 hover:scale-[1.01] sm:px-5 sm:py-10'
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onPick(o.id)
+                }
+              }}
+              className='relative flex min-h-0 min-w-0 w-full flex-col items-center justify-center overflow-visible rounded-[1.2rem] px-4 py-8 text-center transition-transform duration-200 hover:scale-[1.01] sm:px-5 sm:py-10'
               style={{
                 background: 'rgba(255,255,255,0.06)',
                 border: isSelected
@@ -846,35 +876,22 @@ function QuestionBlock ({
               }}
             >
               <span
-                className='kiosk-display pointer-events-none w-full max-w-full [overflow-wrap:anywhere] hyphens-auto px-1'
+                className='kiosk-display w-full max-w-full [overflow-wrap:anywhere] hyphens-auto px-1'
                 style={{
                   fontSize: 'clamp(0.82rem, 1.05vw + 0.62rem, 1.42rem)',
                   fontWeight: 800,
                   letterSpacing: '0.045em',
                   color: 'rgba(255,255,255,0.92)',
-                  marginBottom: sub ? '0.6rem' : 0,
                   lineHeight: 1.22,
                   textTransform: 'uppercase',
                   hyphenateCharacter: '‐'
                 }}
               >
                 {label || '—'}
+                {hasOptionHint ? (
+                  <ObjectiveHint text={optionObjective} />
+                ) : null}
               </span>
-              {sub ? (
-                <span
-                  className='pointer-events-none w-full max-w-full break-words [overflow-wrap:anywhere] px-1'
-                  style={{
-                    fontSize: 'clamp(0.72rem, 0.9vw + 0.45rem, 0.95rem)',
-                    fontWeight: 400,
-                    color: 'rgba(255,255,255,0.5)',
-                    lineHeight: 1.42,
-                    letterSpacing: '0.02em',
-                    hyphenateCharacter: '‐'
-                  }}
-                >
-                  {sub}
-                </span>
-              ) : null}
               <div
                 className='absolute bottom-0 left-0 right-0'
                 style={{
@@ -887,7 +904,7 @@ function QuestionBlock ({
                   boxShadow: '0 0 12px rgba(96, 164, 133, 0.5)'
                 }}
               />
-            </button>
+            </div>
           )
         })}
       </div>
