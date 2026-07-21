@@ -18,6 +18,7 @@ import {
   readStoredFootScannerToken,
   storeFootScannerToken
 } from '@/api/foot-scanners/scannerAuthToken'
+import { disconnectSocket, initSocket } from '@/app/lib/socket'
 
 export type ScannerAuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
 
@@ -41,9 +42,11 @@ export function ScannerAuthProvider ({ children }: { children: ReactNode }) {
   const setAuthenticated = useCallback((data: FootScannerSession) => {
     setSession(data)
     setStatus('authenticated')
+    initSocket(data.id)
   }, [])
 
   const setUnauthenticated = useCallback(() => {
+    disconnectSocket()
     setSession(null)
     setStatus('unauthenticated')
   }, [])
