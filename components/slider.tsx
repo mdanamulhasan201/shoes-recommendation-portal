@@ -7,6 +7,7 @@ import { KIOSK_SLIDER_FAMILY_SLIDES } from '@/app/lib/kioskQuestionCategories'
 import type { KioskSlideFeatureKey } from '@/app/lib/kioskFeatureAccess'
 import { usePartnerFeatureAccess } from '@/components/auth/PartnerFeatureAccessProvider'
 import { SliderProfileButton } from './auth/SliderProfileButton'
+import { SliderScanCreditBadge } from './auth/SliderScanCreditBadge'
 import { imageSrc } from '@/components/signature-ritual/atelier/imageSrc'
 import { SIGNATURE_RITUAL_BASE } from '@/components/signature-ritual/routes'
 
@@ -346,6 +347,7 @@ export default function Slider () {
     return (
       <section className='relative flex h-dvh min-h-screen items-center justify-center bg-zinc-950 text-white/60'>
         Kategorien werden geladen…
+        <SliderScanCreditBadge />
         <SliderProfileButton />
       </section>
     )
@@ -358,6 +360,7 @@ export default function Slider () {
           Für dieses Partnerkonto sind aktuell keine Schuh-Kategorien freigeschaltet.
           Bitte Feature-Zugriff im Admin prüfen.
         </p>
+        <SliderScanCreditBadge />
         <SliderProfileButton />
       </section>
     )
@@ -603,6 +606,7 @@ export default function Slider () {
         })}
       </div>
 
+      <SliderScanCreditBadge />
       <SliderProfileButton />
     </section>
   )
