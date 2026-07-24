@@ -18,6 +18,7 @@ import {
   readStoredFootScannerToken,
   storeFootScannerToken
 } from '@/api/foot-scanners/scannerAuthToken'
+import { clearBuyCreditsAccess } from '@/app/lib/buyCreditsAccess'
 import { disconnectSocket, initSocket } from '@/app/lib/socket'
 
 export type ScannerAuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
@@ -102,6 +103,7 @@ export function ScannerAuthProvider ({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     verifyGeneration.current += 1
     clearFootScannerToken()
+    clearBuyCreditsAccess()
     setUnauthenticated()
     setBootstrapped(true)
   }, [setUnauthenticated])
