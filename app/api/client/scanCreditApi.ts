@@ -157,7 +157,7 @@ export async function createScanCreditCheckout (input: {
   price: number
 }): Promise<string> {
   const credit = Math.floor(input.credit)
-  const price = Math.floor(input.price)
+  const price = Math.round(input.price)
   if (!Number.isFinite(credit) || credit < 1) {
     throw new Error('Ungültige Credit-Anzahl.')
   }

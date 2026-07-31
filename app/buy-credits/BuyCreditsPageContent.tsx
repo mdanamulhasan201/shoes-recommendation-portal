@@ -9,7 +9,6 @@ import {
   createScanCreditCheckout,
   fetchPartnerScanCredit,
   fetchScanCreditRightNow,
-  sendScanCreditRequest,
   type PartnerScanCredit
 } from '@/api/scanCreditApi'
 import {
@@ -194,41 +193,36 @@ export function BuyCreditsPageContent () {
       return
     }
 
+    const totalPrice = Math.max(
+      1,
+      Math.round(parsedAmount * partnerCredit.scanCreditPrice)
+    )
+
     submitLockRef.current = true
     setRequestBusy(true)
     setRequestError(null)
 
     try {
-      const result = await sendScanCreditRequest(parsedAmount)
-
-      // Close + unlock UI immediately — don't wait on balance refresh.
-      toast.success(
-        result.credit
-          ? `${result.credit} Credits angefragt.`
-          : 'Credit-Anfrage erfolgreich gesendet.'
-      )
-      setCredit(prev =>
-        typeof prev === 'number' ? prev + result.credit : result.credit
-      )
-      if (partnerCredit) {
-        setPartnerCredit({
-          ...partnerCredit,
-          scanCredit: partnerCredit.scanCredit + result.credit
-        })
+      const checkoutUrl = await createScanCreditCheckout({
+        credit: parsedAmount,
+        price: totalPrice
+      })
+      const tab = window.open(checkoutUrl, '_blank', 'noopener,noreferrer')
+      if (!tab) {
+        setRequestError(
+          'Popup blockiert — bitte Popups erlauben oder erneut versuchen.'
+        )
+        return
       }
+      toast.success('Checkout in neuem Tab geöffnet.')
       onCloseRequest()
-      setRequestBusy(false)
-      submitLockRef.current = false
-
-      void fetchScanCreditRightNow()
-        .then(value => setCredit(value))
-        .catch(() => {})
     } catch (err) {
       setRequestError(
         err instanceof Error
           ? err.message
-          : 'Credit-Anfrage konnte nicht gesendet werden.'
+          : 'Checkout-Link konnte nicht erstellt werden.'
       )
+    } finally {
       setRequestBusy(false)
       submitLockRef.current = false
     }
@@ -320,8 +314,8 @@ export function BuyCreditsPageContent () {
               Credits kaufen
             </h1>
             <p className='mt-2 max-w-xl text-sm text-white/45'>
-              Paket wählen und sicher online bezahlen — oder unten eine
-              individuelle Anfrage senden.
+              Paket wählen oder unten eine individuelle Menge — Zahlung über
+              Stripe im neuen Tab.
             </p>
           </div>
 
@@ -361,11 +355,11 @@ export function BuyCreditsPageContent () {
                   Alternative
                 </p>
                 <h2 className='mt-2 text-xl font-semibold tracking-tight text-white sm:text-2xl'>
-                  Individuelle Anfrage
+                  Individuell kaufen
                 </h2>
                 <p className='mt-3 max-w-md text-sm leading-relaxed text-white/45'>
-                  Brauchen Sie eine andere Menge? Senden Sie eine Anfrage —
-                  ohne Sofortzahlung über Stripe.
+                  Freie Menge wählen und wie bei den Paketen sicher online über
+                  Stripe bezahlen.
                 </p>
 
                 <ul className='mt-6 space-y-2.5 text-sm text-white/50'>
@@ -375,11 +369,11 @@ export function BuyCreditsPageContent () {
                   </li>
                   <li className='flex items-start gap-2.5'>
                     <span className='mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/80' />
-                    Anfrage geht an Ihren Partner-Account
+                    Preis aus Partner-Scan-Credit
                   </li>
                   <li className='flex items-start gap-2.5'>
                     <span className='mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/80' />
-                    Keine Online-Zahlung nötig
+                    Stripe-Checkout im neuen Tab
                   </li>
                 </ul>
               </div>
@@ -408,7 +402,7 @@ export function BuyCreditsPageContent () {
                           'Preis wird geladen…'
                         ) : (
                           <>
-                            Anfrage starten
+                            Kauf starten
                             <svg
                               width='16'
                               height='16'
@@ -573,7 +567,7 @@ export function BuyCreditsPageContent () {
                         </p>
                       ) : (
                         <p className='mt-3 text-xs leading-relaxed text-white/35'>
-                          Die Anfrage wird ohne Online-Zahlung übermittelt.
+                          Weiterleitung zu Stripe-Checkout im neuen Tab.
                         </p>
                       )}
 
@@ -589,11 +583,14 @@ export function BuyCreditsPageContent () {
                         <button
                           type='submit'
                           disabled={
-                            requestBusy || !amountValid || !partnerCredit
+                            requestBusy ||
+                            !amountValid ||
+                            !partnerCredit ||
+                            checkoutBusyId !== null
                           }
                           className='min-h-12 flex-[1.4] cursor-pointer rounded-full bg-[hsl(var(--primary))] px-4 text-sm font-semibold text-white shadow-[0_10px_28px_rgba(52,120,90,0.3)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45'
                         >
-                          {requestBusy ? 'Wird gesendet…' : 'Anfragen'}
+                          {requestBusy ? 'Weiterleitung…' : 'Kaufen'}
                         </button>
                       </div>
                     </motion.form>
