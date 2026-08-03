@@ -889,6 +889,12 @@ function ShoeCardTile ({
           </span>
         </div>
 
+        {typeof card.partner_available === 'number' && card.partner_available > 0 && (
+          <p className='kiosk-mono text-[12px] font-semibold tabular-nums' style={{ color: KIOSK_SIDEBAR_GREEN }}>
+            {card.partner_available} verfügbar
+          </p>
+        )}
+
         <div className='flex items-center gap-2'>
           <FootMatchPill side='L' percent={leftPercent} />
           <FootMatchPill side='R' percent={rightPercent} />

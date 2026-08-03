@@ -71,7 +71,10 @@ export type ShoeCard = {
   prise: number | null
   suggested_retail: number | null
   discount_percent: number | null
-  
+  /** Machine-only partner overlay: the store's price + available count. */
+  partner_price?: number | null
+  partner_available?: number | null
+
   stock_status: string | null
   affiliate_link: string | null
   heel_drop?: string | null
