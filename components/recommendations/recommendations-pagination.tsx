@@ -1,6 +1,6 @@
 'use client'
 
-export const RECOMMENDATIONS_PAGE_SIZE = 9
+export const RECOMMENDATIONS_PAGE_SIZE = 11
 
 export type RecommendationsLoadMoreProps = {
   loadedCount: number
@@ -40,7 +40,7 @@ export function RecommendationsLoadMore ({
           onClick={() => {
             if (!loadingMore) onLoadMore()
           }}
-          className='kiosk-mono cursor-pointer rounded-full px-8 py-3 text-[12px] font-bold tracking-[0.12em] transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(96,164,133)] disabled:cursor-not-allowed disabled:opacity-50'
+          className='kiosk-mono min-h-12 touch-manipulation cursor-pointer rounded-full px-8 py-3.5 text-[13px] font-bold tracking-[0.12em] transition-all duration-200 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(96,164,133)] disabled:cursor-not-allowed disabled:opacity-50 [-webkit-tap-highlight-color:transparent]'
           style={{
             background:
               'linear-gradient(145deg, rgba(96,164,133,0.95) 0%, rgba(72,130,108,0.95) 100%)',

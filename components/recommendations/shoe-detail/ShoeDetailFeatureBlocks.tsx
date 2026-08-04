@@ -6,6 +6,8 @@ import type { ReferenceShoeCharacteristic } from '@/components/recommendations/t
 export type ShoeDetailFeatureBlocksProps = {
   items: ReferenceShoeCharacteristic[]
   accentColor: string
+  /** Narrow sidebar / drawer — single column, tighter layout. */
+  compact?: boolean
 }
 
 function elementLabel (index: number) {
@@ -14,7 +16,8 @@ function elementLabel (index: number) {
 
 export function ShoeDetailFeatureBlocks ({
   items,
-  accentColor
+  accentColor,
+  compact = false
 }: ShoeDetailFeatureBlocksProps) {
   const list = items.filter(
     c =>
@@ -25,7 +28,11 @@ export function ShoeDetailFeatureBlocks ({
 
   return (
     <section
-      className='relative mt-2 w-full overflow-hidden rounded-2xl border border-white/[0.07] px-4 py-8 sm:mt-4 sm:px-6 sm:py-10'
+      className={
+        compact
+          ? 'relative mt-1 w-full overflow-hidden rounded-2xl border border-white/[0.07] px-3 py-5 sm:px-4 sm:py-6'
+          : 'relative mt-2 w-full overflow-hidden rounded-2xl border border-white/[0.07] px-4 py-8 sm:mt-4 sm:px-6 sm:py-10'
+      }
       style={{
         background:
           'linear-gradient(165deg, rgba(12,14,18,0.98) 0%, rgba(8,9,12,0.99) 100%)',
@@ -37,7 +44,13 @@ export function ShoeDetailFeatureBlocks ({
       }}
       aria-label='Produkthighlights'
     >
-      <div className='mb-6 flex flex-wrap items-end justify-between gap-3'>
+      <div
+        className={
+          compact
+            ? 'mb-4 flex flex-col gap-2 sm:mb-5'
+            : 'mb-6 flex flex-wrap items-end justify-between gap-3'
+        }
+      >
         <div className='min-w-0'>
           <div className='flex items-center gap-2'>
             <span
@@ -51,7 +64,13 @@ export function ShoeDetailFeatureBlocks ({
               FEATURE BLOCKS
             </p>
           </div>
-          <h2 className='mt-1 text-sm font-semibold leading-snug text-white/90 sm:text-[15px]'>
+          <h2
+            className={
+              compact
+                ? 'mt-1 text-[13px] font-semibold leading-snug text-white/90 sm:text-sm'
+                : 'mt-1 text-sm font-semibold leading-snug text-white/90 sm:text-[15px]'
+            }
+          >
             Die Features hinter der Performance
           </h2>
         </div>
@@ -60,13 +79,66 @@ export function ShoeDetailFeatureBlocks ({
         </p>
       </div>
 
-      <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6'>
+      <div
+        className={
+          compact
+            ? 'flex flex-col gap-3'
+            : 'grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6'
+        }
+      >
         {list.map((item, i) => {
           const src = item.image?.trim()
             ? resolveShoeImageSrc(item.image)
             : null
           const title = item.title?.trim() ?? ''
           const body = item.text_field?.trim() ?? ''
+
+          if (compact) {
+            return (
+              <article
+                key={item.id}
+                className='flex gap-3 overflow-hidden rounded-2xl border border-white/8 bg-[#0b0c10]/90 p-3 sm:gap-3.5 sm:p-3.5'
+                style={{
+                  boxShadow:
+                    '0 12px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)'
+                }}
+              >
+                <div className='relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-neutral-900/80 sm:h-24 sm:w-24'>
+                  {src ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={src}
+                      alt={title || 'Highlight'}
+                      className='h-full w-full object-cover object-center'
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className='flex h-full items-center justify-center text-[11px] text-white/25'>
+                      —
+                    </div>
+                  )}
+                </div>
+                <div className='min-w-0 flex-1'>
+                  <p
+                    className='kiosk-mono text-[9px] font-bold tracking-[0.2em]'
+                    style={{ color: accentColor }}
+                  >
+                    {elementLabel(i)}
+                  </p>
+                  {title ? (
+                    <h3 className='mt-1 text-[15px] font-bold leading-snug text-white sm:text-base'>
+                      {title}
+                    </h3>
+                  ) : null}
+                  {body ? (
+                    <p className='mt-1 line-clamp-4 text-[13px] leading-relaxed text-white/55 sm:text-sm'>
+                      {body}
+                    </p>
+                  ) : null}
+                </div>
+              </article>
+            )
+          }
 
           return (
             <article

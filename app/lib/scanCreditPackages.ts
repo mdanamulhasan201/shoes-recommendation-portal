@@ -1,47 +1,82 @@
-/** Default online-payment packages (credit + total price in EUR). */
+/** Credit package from GET /v3/scan-credit/credit-prise/get-public */
 export type CreditPackage = {
   id: string
   credit: number
   price: number
   perScan: number
+  popularity?: string | null
+  discount?: string | null
+  isPublic: boolean
   badge?: string
   badgeVariant?: 'pill' | 'circle'
   featured?: boolean
 }
 
-export const SCAN_CREDIT_PACKAGES: CreditPackage[] = [
-  {
-    id: 'pack-100',
-    credit: 100,
-    price: 89,
-    perScan: 0.89
-  },
-  {
-    id: 'pack-500',
-    credit: 500,
-    price: 399,
-    perScan: 0.8,
-    badge: 'Beliebt',
-    badgeVariant: 'pill',
-    featured: true
-  },
-  {
-    id: 'pack-1000',
-    credit: 1000,
-    price: 749,
-    perScan: 0.75,
-    badge: '-15%',
-    badgeVariant: 'circle'
-  },
-  {
-    id: 'pack-5000',
-    credit: 5000,
-    price: 3399,
-    perScan: 0.68,
-    badge: 'Bester Preis',
-    badgeVariant: 'pill'
+function normalizeDiscount (raw?: string | null): string | null {
+  const value = raw?.trim()
+  if (!value) return null
+
+  // Keep digits / optional leading minus; always end with %.
+  const numeric = value.replace(/%/g, '').replace(/^\s*-\s*/, '-').trim()
+  const withMinus = numeric.startsWith('-') ? numeric : `-${numeric.replace(/^-/, '')}`
+  return withMinus.endsWith('%') ? withMinus : `${withMinus}%`
+}
+
+function isFeaturedPopularity (popularity?: string | null): boolean {
+  const p = (popularity ?? '').trim().toLowerCase()
+  if (!p) return false
+  return (
+    p.includes('popular') ||
+    p.includes('beliebt') ||
+    p.includes('best') ||
+    p.includes('vip') ||
+    p.includes('most')
+  )
+}
+
+export function mapPublicCreditPriceToPackage (item: {
+  id: string
+  credit: number
+  price: number
+  popularity?: string | null
+  discount?: string | null
+  is_public?: boolean
+}): CreditPackage {
+  const credit = item.credit
+  const price = item.price
+  const perScan =
+    typeof credit === 'number' && credit > 0 && typeof price === 'number'
+      ? price / credit
+      : 0
+
+  const popularity = item.popularity?.trim() || null
+  const discount = normalizeDiscount(item.discount)
+  const featured = isFeaturedPopularity(popularity)
+
+  // Prefer discount circle badge when present; otherwise popularity pill.
+  let badge: string | undefined
+  let badgeVariant: 'pill' | 'circle' | undefined
+  if (discount) {
+    badge = discount
+    badgeVariant = 'circle'
+  } else if (popularity) {
+    badge = popularity
+    badgeVariant = 'pill'
   }
-]
+
+  return {
+    id: item.id,
+    credit,
+    price,
+    perScan,
+    popularity,
+    discount,
+    isPublic: Boolean(item.is_public),
+    badge,
+    badgeVariant,
+    featured
+  }
+}
 
 export function formatCreditCount (n: number): string {
   return new Intl.NumberFormat('de-DE').format(n)
