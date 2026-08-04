@@ -183,3 +183,59 @@ export async function createScanCreditCheckout (input: {
     )
   }
 }
+
+export type PublicCreditPriceItem = {
+  id: string
+  popularity?: string | null
+  credit: number
+  price: number
+  discount?: string | null
+  is_public?: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+type PublicCreditPricesEnvelope = {
+  success?: boolean
+  message?: string
+  data?: PublicCreditPriceItem[]
+  hasMore?: boolean
+}
+
+/**
+ * GET /v3/scan-credit/credit-prise/get-public (partner Token).
+ * Public packages + private packages granted to this partner.
+ */
+export async function fetchPublicCreditPrices (input?: {
+  limit?: number
+  cursor?: string
+}): Promise<{ items: PublicCreditPriceItem[]; hasMore: boolean }> {
+  const limit = Math.min(100, Math.max(1, input?.limit ?? 100))
+  const params: Record<string, string | number> = { limit }
+  if (input?.cursor?.trim()) params.cursor = input.cursor.trim()
+
+  try {
+    const { data: json } = await axiosClient.get<PublicCreditPricesEnvelope>(
+      '/v3/scan-credit/credit-prise/get-public',
+      { params }
+    )
+    if (!json?.success || !Array.isArray(json.data)) {
+      throw new Error(
+        json?.message || 'Credit-Pakete konnten nicht geladen werden.'
+      )
+    }
+    return {
+      items: json.data.filter(
+        item =>
+          typeof item?.id === 'string' &&
+          typeof item?.credit === 'number' &&
+          typeof item?.price === 'number'
+      ),
+      hasMore: Boolean(json.hasMore)
+    }
+  } catch (e) {
+    throw new Error(
+      footScannerErrorMessage(e, 'Credit-Pakete konnten nicht geladen werden.')
+    )
+  }
+}

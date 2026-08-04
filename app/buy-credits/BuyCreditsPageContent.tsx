@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import {
   createScanCreditCheckout,
   fetchPartnerScanCredit,
+  fetchPublicCreditPrices,
   fetchScanCreditRightNow,
   type PartnerScanCredit
 } from '@/api/scanCreditApi'
@@ -19,7 +20,7 @@ import {
 import {
   formatCreditCount,
   formatEuro,
-  SCAN_CREDIT_PACKAGES,
+  mapPublicCreditPriceToPackage,
   type CreditPackage
 } from '@/app/lib/scanCreditPackages'
 import { useScannerAuth } from '@/components/auth/ScannerAuthProvider'
@@ -31,6 +32,11 @@ export function BuyCreditsPageContent () {
   const [unlocked, setUnlocked] = useState<boolean | null>(null)
   const [credit, setCredit] = useState<number | null>(null)
   const [loadingCredit, setLoadingCredit] = useState(true)
+  const [packages, setPackages] = useState<CreditPackage[]>([])
+  const [loadingPackages, setLoadingPackages] = useState(true)
+  const [packagesError, setPackagesError] = useState<string | null>(null)
+  const [packagesHasMore, setPackagesHasMore] = useState(false)
+  const [loadingMorePackages, setLoadingMorePackages] = useState(false)
   const [checkoutBusyId, setCheckoutBusyId] = useState<string | null>(null)
   const [partnerCredit, setPartnerCredit] = useState<PartnerScanCredit | null>(
     null
@@ -73,6 +79,8 @@ export function BuyCreditsPageContent () {
 
     let cancelled = false
     setLoadingCredit(true)
+    setLoadingPackages(true)
+    setPackagesError(null)
 
     void fetchScanCreditRightNow()
       .then(value => {
@@ -88,7 +96,27 @@ export function BuyCreditsPageContent () {
         if (!cancelled) setLoadingCredit(false)
       })
 
-    // Prefetch price in background so "Anfrage starten" is instant when ready.
+    void fetchPublicCreditPrices({ limit: 100 })
+      .then(({ items, hasMore }) => {
+        if (cancelled) return
+        setPackages(items.map(mapPublicCreditPriceToPackage))
+        setPackagesHasMore(hasMore)
+      })
+      .catch(err => {
+        if (cancelled) return
+        setPackages([])
+        setPackagesHasMore(false)
+        setPackagesError(
+          err instanceof Error
+            ? err.message
+            : 'Credit-Pakete konnten nicht geladen werden.'
+        )
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPackages(false)
+      })
+
+    // Prefetch partner price in background for custom buy.
     void fetchPartnerScanCredit()
       .then(value => {
         if (!cancelled) setPartnerCredit(value)
@@ -101,6 +129,36 @@ export function BuyCreditsPageContent () {
       cancelled = true
     }
   }, [unlocked, status, session])
+
+  const loadMorePackages = async () => {
+    if (loadingMorePackages || !packagesHasMore || packages.length === 0) return
+    const cursor = packages[packages.length - 1]?.id
+    if (!cursor) return
+
+    setLoadingMorePackages(true)
+    try {
+      const { items, hasMore } = await fetchPublicCreditPrices({
+        limit: 100,
+        cursor
+      })
+      setPackages(prev => {
+        const seen = new Set(prev.map(p => p.id))
+        const next = items
+          .map(mapPublicCreditPriceToPackage)
+          .filter(p => !seen.has(p.id))
+        return [...prev, ...next]
+      })
+      setPackagesHasMore(hasMore)
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'Weitere Pakete konnten nicht geladen werden.'
+      )
+    } finally {
+      setLoadingMorePackages(false)
+    }
+  }
 
   if (unlocked !== true || status === 'loading' || !session) {
     return (
@@ -320,17 +378,76 @@ export function BuyCreditsPageContent () {
           </div>
 
           <div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-5'>
-            {SCAN_CREDIT_PACKAGES.map((pack, index) => (
-              <PackageCard
-                key={pack.id}
-                pack={pack}
-                index={index}
-                busy={checkoutBusyId === pack.id}
-                disabled={checkoutBusyId !== null}
-                onBuy={() => void onBuyPackage(pack)}
-              />
-            ))}
+            {loadingPackages
+              ? Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    key={`pack-skel-${index}`}
+                    className='h-65 animate-pulse rounded-[1.25rem] border border-white/10 bg-zinc-900/60'
+                  />
+                ))
+              : null}
+
+            {!loadingPackages && packagesError ? (
+              <div className='col-span-full rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-5 text-sm text-red-200'>
+                <p>{packagesError}</p>
+                <button
+                  type='button'
+                  onClick={() => {
+                    setLoadingPackages(true)
+                    setPackagesError(null)
+                    void fetchPublicCreditPrices({ limit: 100 })
+                      .then(({ items, hasMore }) => {
+                        setPackages(items.map(mapPublicCreditPriceToPackage))
+                        setPackagesHasMore(hasMore)
+                      })
+                      .catch(err => {
+                        setPackagesError(
+                          err instanceof Error
+                            ? err.message
+                            : 'Credit-Pakete konnten nicht geladen werden.'
+                        )
+                      })
+                      .finally(() => setLoadingPackages(false))
+                  }}
+                  className='mt-3 rounded-full border border-red-400/30 px-3 py-1.5 text-xs font-semibold text-red-100 transition hover:bg-red-500/20'
+                >
+                  Erneut laden
+                </button>
+              </div>
+            ) : null}
+
+            {!loadingPackages && !packagesError && packages.length === 0 ? (
+              <div className='col-span-full rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-8 text-center text-sm text-white/45'>
+                Keine Credit-Pakete verfügbar.
+              </div>
+            ) : null}
+
+            {!loadingPackages && !packagesError
+              ? packages.map((pack, index) => (
+                  <PackageCard
+                    key={pack.id}
+                    pack={pack}
+                    index={index}
+                    busy={checkoutBusyId === pack.id}
+                    disabled={checkoutBusyId !== null || requestBusy}
+                    onBuy={() => void onBuyPackage(pack)}
+                  />
+                ))
+              : null}
           </div>
+
+          {packagesHasMore && !loadingPackages && !packagesError ? (
+            <div className='mt-5 flex justify-center'>
+              <button
+                type='button'
+                disabled={loadingMorePackages}
+                onClick={() => void loadMorePackages()}
+                className='min-h-11 cursor-pointer rounded-full border border-white/14 bg-white/5 px-5 text-sm font-semibold text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-55'
+              >
+                {loadingMorePackages ? 'Laden…' : 'Mehr Pakete laden'}
+              </button>
+            </div>
+          ) : null}
         </motion.section>
 
         <motion.section
@@ -618,6 +735,9 @@ function PackageCard ({
   disabled: boolean
   onBuy: () => void
 }) {
+  const popularityLabel = pack.popularity?.trim() || null
+  const discountLabel = pack.discount?.trim() || null
+
   return (
     <motion.article
       initial={{ opacity: 0, y: 18 }}
@@ -642,20 +762,31 @@ function PackageCard ({
         />
       ) : null}
 
-      {pack.badge ? (
-        <span
-          className={[
-            'absolute top-3 right-3 z-10 font-semibold',
-            pack.badgeVariant === 'circle'
-              ? 'flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/20 text-[10px] text-emerald-100 ring-1 ring-emerald-400/45'
-              : 'rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-100 ring-1 ring-emerald-400/40'
-          ].join(' ')}
-        >
-          {pack.badge}
-        </span>
-      ) : null}
+      <div className='absolute top-3 right-3 z-10 flex max-w-[58%] flex-col items-end gap-1.5'>
+        {popularityLabel ? (
+          <span className='rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold capitalize text-emerald-100 ring-1 ring-emerald-400/40'>
+            {popularityLabel}
+          </span>
+        ) : null}
+        {discountLabel ? (
+          <span className='inline-flex min-h-9 min-w-9 items-center justify-center rounded-full bg-emerald-500/20 px-2.5 text-[11px] font-semibold tabular-nums text-emerald-100 ring-1 ring-emerald-400/45'>
+            {discountLabel}
+          </span>
+        ) : null}
+        {!pack.isPublic ? (
+          <span className='rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-white/55'>
+            Privat
+          </span>
+        ) : null}
+      </div>
 
-      <div className={pack.badge ? 'pr-12' : undefined}>
+      <div
+        className={
+          popularityLabel || discountLabel || !pack.isPublic
+            ? 'pr-16'
+            : undefined
+        }
+      >
         <p className='text-[10px] font-medium uppercase tracking-[0.16em] text-white/35'>
           Paket
         </p>
