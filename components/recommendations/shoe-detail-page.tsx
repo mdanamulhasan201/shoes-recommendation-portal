@@ -44,10 +44,16 @@ import { ShoeDetailLoading } from '@/components/recommendations/shoe-detail/Shoe
 
 export function ShoeDetailPage ({
   shoeId,
-  fileId
+  fileId,
+  variant = 'page',
+  onDismiss
 }: {
   shoeId: string
   fileId: string
+  /** `drawer`: embed in recommendations sidebar overlay (same content). */
+  variant?: 'page' | 'drawer'
+  /** Called instead of routing back when `variant === 'drawer'`. */
+  onDismiss?: () => void
 }) {
   const router = useRouter()
   const [detail, setDetail] = useState<ShoeDetailData | null>(null)
@@ -550,8 +556,12 @@ export function ShoeDetailPage ({
   )
 
   const pushRecommendations = useCallback(() => {
+    if (variant === 'drawer' && onDismiss) {
+      onDismiss()
+      return
+    }
     router.push('/kiosk/recommendations')
-  }, [router])
+  }, [router, variant, onDismiss])
 
   const openWarenkorb = useCallback(() => {
     saveWarenkorbReturnDetailPath(shoeId, fileId)
@@ -679,15 +689,30 @@ export function ShoeDetailPage ({
   }, [detail, currentImage, selectedSizeId, selectedColorwayId, syncCartBadgeCount])
 
   if (loading) {
+    if (variant === 'drawer') {
+      return (
+        <div className='flex min-h-0 flex-1 items-center justify-center bg-[#050505] p-8'>
+          <ShoeDetailLoading />
+        </div>
+      )
+    }
     return <ShoeDetailLoading />
   }
 
   if (error || !detail) {
     return (
-      <ShoeDetailError
-        message={error || 'Keine Daten.'}
-        onBackToSelection={pushRecommendations}
-      />
+      <div
+        className={
+          variant === 'drawer'
+            ? 'flex min-h-0 flex-1 flex-col bg-[#050505]'
+            : undefined
+        }
+      >
+        <ShoeDetailError
+          message={error || 'Keine Daten.'}
+          onBackToSelection={pushRecommendations}
+        />
+      </div>
     )
   }
 
@@ -705,74 +730,125 @@ export function ShoeDetailPage ({
     if (row?.id) setSelectedSizeId(row.id)
   }
 
+  const isDrawer = variant === 'drawer'
+
   return (
-    <div className='relative min-h-dvh w-full overflow-x-hidden bg-[#050505] text-white'>
-      <div className='pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,hsl(var(--primary)/0.06)_0%,transparent_50%)]' />
+    <div
+      className={
+        isDrawer
+          ? 'relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#050505] text-white'
+          : 'relative min-h-dvh w-full overflow-x-hidden bg-[#050505] text-white'
+      }
+    >
+      {!isDrawer ? (
+        <div className='pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,hsl(var(--primary)/0.06)_0%,transparent_50%)]' />
+      ) : null}
 
-      <ShoeDetailHeader
-        onBack={pushRecommendations}
-        onWarenkorbClick={openWarenkorb}
-        cartCount={cartCount}
-      />
-
-      <div className='relative z-10 mt-10 mx-auto grid max-w-[1480px] gap-6 px-4 pb-12 sm:gap-8 sm:px-8 lg:grid-cols-[minmax(0,52%)_1fr] lg:items-start lg:gap-10'>
-        <div className='flex w-full min-w-0 flex-col lg:sticky lg:top-[4.75rem] lg:self-start'>
-          <ShoeDetailGallery
-            galleryStageRef={galleryStageRef}
-            imageUrls={imageUrls}
-            currentImage={currentImage}
-            safeGalleryIdx={safeGalleryIdx}
-            setGalleryIdx={setGalleryIdx}
-            galleryDragDx={galleryDragDx}
-            galleryDragging={galleryDragging}
-            activeColor={accentColor}
-            detailName={detail.name}
-            colorways={colorways}
-            selectedColorwayId={selectedColorwayId}
-            onSelectColorway={setSelectedColorwayId}
-            onPointerDown={onGalleryPointerDown}
-            onPointerMove={onGalleryPointerMove}
-            onPointerUp={onGalleryPointerUp}
-            onPointerCancel={onGalleryPointerCancel}
-            onGalleryPrev={galleryPrev}
-            onGalleryNext={galleryNext}
-          />
-        </div>
-
-        <ShoeDetailInfoColumn
-          detail={detail}
-          categoryLine={categoryLine}
-          accentColor={accentColor}
-          sizes={sizes}
-          selectedSizeId={selectedSizeId}
-          onSelectSizeId={setSelectedSizeId}
-          perfectEuLabel={perfectEuLabel}
-          onApplyPerfectSize={applyPerfectSize}
-          leftFootPercent={leftP}
-          rightFootPercent={rightP}
-          leftFootSizeLabel={leftFootSizeLabel}
-          rightFootSizeLabel={rightFootSizeLabel}
-          confidencePercent={confidence}
-          fitSliderPercent={fitSliderPct}
-          regulatorBallMm={regulatorBallMm}
-          regulatorLengthMm={regulatorLengthMm}
-          ballRegulatorOffsetMm={ballRegulatorOffsetMm}
-          onBallRegulatorOffsetChange={setBallRegulatorOffsetMm}
-          onWidthAdjustingChange={setWidthAdjusting}
-          fitRefetching={fitRefetching}
-          fitScorePending={fitScorePending}
-          addToCartSubmitting={addToCartSubmitting}
-          addToCartError={addToCartError}
-          onAddToCart={addToCart}
-          onBackToSelection={pushRecommendations}
+      <div className={isDrawer ? 'shrink-0 border-b border-white/10' : undefined}>
+        <ShoeDetailHeader
+          onBack={pushRecommendations}
+          onWarenkorbClick={openWarenkorb}
+          cartCount={cartCount}
         />
       </div>
 
-      <div className='relative z-10 mx-auto w-full max-w-[1480px] px-4 pb-14 sm:px-8'>
-        <ShoeDetailFeatureBlocks
-          items={characteristics}
-          accentColor={accentColor}
-        />
+      <div
+        className={
+          isDrawer
+            ? 'min-h-0 flex-1 overflow-y-auto overscroll-y-contain'
+            : undefined
+        }
+      >
+        <div
+          className={
+            isDrawer
+              ? 'relative z-10 mx-auto flex w-full max-w-[720px] flex-col gap-6 px-4 pb-10 pt-4 sm:px-6'
+              : 'relative z-10 mt-10 mx-auto grid max-w-[1480px] gap-6 px-4 pb-12 sm:gap-8 sm:px-8 lg:grid-cols-[minmax(0,52%)_1fr] lg:items-start lg:gap-10'
+          }
+        >
+          <div
+            className={
+              isDrawer
+                ? 'flex w-full min-w-0 flex-col'
+                : 'flex w-full min-w-0 flex-col lg:sticky lg:top-[4.75rem] lg:self-start'
+            }
+          >
+            <ShoeDetailGallery
+              galleryStageRef={galleryStageRef}
+              imageUrls={imageUrls}
+              currentImage={currentImage}
+              safeGalleryIdx={safeGalleryIdx}
+              setGalleryIdx={setGalleryIdx}
+              galleryDragDx={galleryDragDx}
+              galleryDragging={galleryDragging}
+              activeColor={accentColor}
+              detailName={detail.name}
+              colorways={colorways}
+              selectedColorwayId={selectedColorwayId}
+              onSelectColorway={setSelectedColorwayId}
+              onPointerDown={onGalleryPointerDown}
+              onPointerMove={onGalleryPointerMove}
+              onPointerUp={onGalleryPointerUp}
+              onPointerCancel={onGalleryPointerCancel}
+              onGalleryPrev={galleryPrev}
+              onGalleryNext={galleryNext}
+            />
+          </div>
+
+          <ShoeDetailInfoColumn
+            detail={detail}
+            categoryLine={categoryLine}
+            accentColor={accentColor}
+            sizes={sizes}
+            selectedSizeId={selectedSizeId}
+            onSelectSizeId={setSelectedSizeId}
+            perfectEuLabel={perfectEuLabel}
+            onApplyPerfectSize={applyPerfectSize}
+            leftFootPercent={leftP}
+            rightFootPercent={rightP}
+            leftFootSizeLabel={leftFootSizeLabel}
+            rightFootSizeLabel={rightFootSizeLabel}
+            confidencePercent={confidence}
+            fitSliderPercent={fitSliderPct}
+            regulatorBallMm={regulatorBallMm}
+            regulatorLengthMm={regulatorLengthMm}
+            ballRegulatorOffsetMm={ballRegulatorOffsetMm}
+            onBallRegulatorOffsetChange={setBallRegulatorOffsetMm}
+            onWidthAdjustingChange={setWidthAdjusting}
+            fitRefetching={fitRefetching}
+            fitScorePending={fitScorePending}
+            addToCartSubmitting={addToCartSubmitting}
+            addToCartError={addToCartError}
+            onAddToCart={addToCart}
+            onBackToSelection={pushRecommendations}
+          />
+        </div>
+
+        <div
+          className={
+            isDrawer
+              ? 'relative z-10 mx-auto w-full max-w-[720px] px-4 pb-10 sm:px-6'
+              : 'relative z-10 mx-auto w-full max-w-[1480px] px-4 pb-14 sm:px-8'
+          }
+        >
+          <ShoeDetailFeatureBlocks
+            items={characteristics}
+            accentColor={accentColor}
+            compact={isDrawer}
+          />
+        </div>
+
+        <div
+          className={
+            isDrawer
+              ? 'relative z-10 mx-auto w-full max-w-[720px] px-4 pb-14 sm:px-6'
+              : 'relative z-10 mx-auto w-full max-w-[1480px] px-4 pb-16 sm:px-8'
+          }
+        >
+          <ShoeDetailProductDescription
+            productDescription={detail.product_description}
+          />
+        </div>
       </div>
 
       <ShoeDetailLightbox
@@ -794,12 +870,6 @@ export function ShoeDetailPage ({
         onLbPanPointerCancel={onLbPanPointerCancel}
         onLbLostPointerCapture={onLbLostPointerCapture}
       />
-
-      <div className='relative z-10 mx-auto w-full max-w-[1480px] px-4 pb-16 sm:px-8'>
-        <ShoeDetailProductDescription
-          productDescription={detail.product_description}
-        />
-      </div>
     </div>
   )
 }
