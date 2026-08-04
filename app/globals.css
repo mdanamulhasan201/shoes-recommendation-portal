@@ -177,6 +177,9 @@ body {
 .recommendations-products-scroll {
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   scrollbar-gutter: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(96, 164, 133, 0.55) rgba(255, 255, 255, 0.06);

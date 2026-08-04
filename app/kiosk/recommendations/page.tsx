@@ -18,9 +18,12 @@ import {
 } from '@/app/lib/selectedCategory'
 import { apiUrl } from '@/api/apiConfig'
 import { fetchScannerFileById } from '@/api/scannerApi'
-import { RecommendationsHeader } from '@/components/recommendations/recommendations-header'
 import { RecommendationsProducts } from '@/components/recommendations/recommendations-products'
-import { RecommendationsSidebar } from '@/components/recommendations/recommendations-sidebar'
+import { KioskControlStrip } from '@/components/recommendations/terminal/KioskControlStrip'
+import { KioskFootProfileDrawer } from '@/components/recommendations/terminal/KioskFootProfileDrawer'
+import { KioskRecommendationBar } from '@/components/recommendations/terminal/KioskRecommendationBar'
+import { KioskShoeDetailDrawer } from '@/components/recommendations/terminal/KioskShoeDetailDrawer'
+import { KioskTerminalHeader } from '@/components/recommendations/terminal/KioskTerminalHeader'
 import {
   dominantWidthBandIndex,
   footWidthBandIndex,
@@ -36,7 +39,8 @@ import {
   type LeftPanel,
   type MatchingApiResponse,
   type ScanState,
-  type ShoeCard
+  type ShoeCard,
+  type ShoeCardColor
 } from '@/components/recommendations/types'
 
 /* ------------------------------------------------------------------------- */
@@ -44,6 +48,30 @@ import {
 /* ------------------------------------------------------------------------- */
 
 const MATCH_FOOT_ONLY_STORAGE_KEY = 'kiosk_recommendations_match_foot_only'
+
+/** Matching API may send `colors` or `reference_shoe_colors` on list cards. */
+function normalizeMatchingCard (raw: ShoeCard): ShoeCard {
+  const anyRaw = raw as ShoeCard & {
+    reference_shoe_colors?: ShoeCardColor[] | null
+  }
+  const colors =
+    (Array.isArray(raw.colors) && raw.colors.length > 0
+      ? raw.colors
+      : null) ??
+    (Array.isArray(anyRaw.reference_shoe_colors) &&
+    anyRaw.reference_shoe_colors.length > 0
+      ? anyRaw.reference_shoe_colors.map(c => ({
+          id: c.id,
+          name: c.name ?? null,
+          code: c.code ?? null,
+          image: c.image ?? null
+        }))
+      : null) ??
+    raw.colors ??
+    null
+
+  return colors === raw.colors ? raw : { ...raw, colors }
+}
 
 const SCAN_KEYS: (keyof ScanState)[] = [
   'left_length',
@@ -191,6 +219,8 @@ export default function KioskRecommendationsPage () {
   const router = useRouter()
   const [entered, setEntered] = useState(false)
   const [sidebarEditable, setSidebarEditable] = useState(false)
+  const [footProfileOpen, setFootProfileOpen] = useState(false)
+  const [detailCard, setDetailCard] = useState<ShoeCard | null>(null)
 
   const [cardsLoading, setCardsLoading] = useState(false)
   const [matchUpdating, setMatchUpdating] = useState(false)
@@ -423,7 +453,7 @@ export default function KioskRecommendationsPage () {
       }
 
       const pagination = json.data?.pagination
-      const batch = json.data?.cards ?? []
+      const batch = (json.data?.cards ?? []).map(normalizeMatchingCard)
       const more = pagination?.hasMore === true
       const next = pagination?.nextCursor ?? null
 
@@ -655,85 +685,114 @@ export default function KioskRecommendationsPage () {
       className='relative h-dvh w-full overflow-hidden bg-[#050505] text-white'
       aria-label='Kiosk recommendations'
     >
-      <div className='pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_15%,hsl(var(--primary)/0.04)_0%,transparent_55%)]' />
-      <div className='pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_100%,hsl(var(--primary)/0.02)_0%,transparent_40%)]' />
+      <div className='pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_15%,hsl(var(--primary)/0.05)_0%,transparent_55%)]' />
+      <div className='pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_100%,hsl(var(--primary)/0.03)_0%,transparent_40%)]' />
 
       <div
-        className='relative z-10 mx-auto flex h-dvh w-full max-w-[1720px] flex-col px-4 sm:px-8 overflow-x-hidden'
+        className='relative z-10 mx-auto flex h-dvh w-full max-w-[1800px] flex-col overflow-x-hidden px-3 touch-manipulation sm:px-6 md:px-8'
         style={{
           opacity: entered ? 1 : 0,
           transform: entered ? 'translateY(0px)' : 'translateY(18px)',
           transition: 'opacity 420ms ease-out, transform 420ms ease-out',
-          paddingTop: 'max(1rem, env(safe-area-inset-top))',
-          paddingBottom: 'max(1rem, env(safe-area-inset-bottom))'
+          paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+          paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))'
         }}
       >
-        {/* Header — separate component, fixed at top, never scrolls */}
-        <RecommendationsHeader totalMatches={totalMatches} scannerId={scannerId} />
+        <KioskTerminalHeader
+          totalMatches={totalMatches}
+          scannerId={scannerId}
+        />
 
         {error ? (
-          <p className='shrink-0 text-center text-sm text-red-400 mt-3'>{error}</p>
+          <p className='mt-3 shrink-0 text-center text-sm text-red-400'>
+            {error}
+          </p>
         ) : null}
 
-        {/* Body — sidebar (fixed) + products (scrollable) */}
-        <div className='grid w-full min-h-0 flex-1 items-stretch gap-4 sm:gap-5 py-4 sm:py-6 lg:grid-cols-[420px_1fr] lg:overflow-hidden'>
-          {/* Sidebar — scroll inside card; finger pan-y on content */}
-          <div className='flex min-h-0 flex-1 flex-col lg:h-full lg:min-h-0 lg:overflow-hidden'>
-            <RecommendationsSidebar
-              customerName={customerName}
-              scannerId={scannerId}
-              matchFootOnly={matchFootOnly}
-              onMatchFootOnlyChange={onMatchFootOnlyChange}
-              relaxMinFootMatch={relaxMinFootMatch}
-              onRelaxMinFootMatchChange={onRelaxMinFootMatchChange}
-              leftPanel={leftPanel}
-              livePrimaryFinding={livePrimaryFinding}
-              ballRegulatorOffsetMm={ballRegulatorOffsetMm}
-              onBallRegulatorOffsetChange={setBallRegulatorOffsetMm}
-              regulatorBallMm={regulatorBallMm}
-              regulatorLengthMm={regulatorLengthMm}
-              scan={scan}
-              setScan={setScan}
-              category={category}
-              onCategoryChange={onCategoryChangeFromSidebar}
-              sidebarEditable={sidebarEditable}
-              setSidebarEditable={setSidebarEditable}
-              matchUpdating={matchUpdating}
-              onUpdateMatch={fetchRecommendations}
-              onResetMeasurements={resetMeasurements}
-              measurementsResetDisabled={
-                !scannerId ||
-                !measurementsDirty ||
-                measurementResetting ||
-                matchUpdating
-              }
-              measurementResetting={measurementResetting}
-              leftLength={leftLength}
-              rightLength={rightLength}
-              leftWidth={leftWidth}
-              rightWidth={rightWidth}
-              leftBall={leftBall}
-              rightBall={rightBall}
-            />
-          </div>
+        <div
+          className='recommendations-products-scroll mt-3 min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-y-contain pb-8 pr-0.5 sm:mt-5 sm:space-y-6'
+          style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+        >
+          <KioskRecommendationBar
+            total={totalMatches}
+            category={category}
+            customerName={customerName}
+            onOpenFootProfile={() => setFootProfileOpen(true)}
+            onOpenConsultation={() => setFootProfileOpen(true)}
+          />
 
-          {/* Products — scroll only when content overflows; thin custom scrollbar */}
-          <div
-            className='recommendations-products-scroll min-h-0 lg:h-full pr-0.5'
-            style={{ WebkitOverflowScrolling: 'touch' }}
-          >
-            <RecommendationsProducts
-              cards={cards}
-              loading={cardsLoading}
-              loadingMore={loadingMore}
-              scannerId={scannerId}
-              total={totalMatches}
-              hasMore={hasMore}
-              onLoadMore={() => void loadMore()}
-            />
-          </div>
+          <KioskControlStrip
+            category={category}
+            onCategoryChange={onCategoryChangeFromSidebar}
+            matchFootOnly={matchFootOnly}
+            onMatchFootOnlyChange={onMatchFootOnlyChange}
+            relaxMinFootMatch={relaxMinFootMatch}
+            onRelaxMinFootMatchChange={onRelaxMinFootMatchChange}
+            resultCount={totalMatches}
+          />
+
+          <RecommendationsProducts
+            cards={cards}
+            loading={cardsLoading}
+            loadingMore={loadingMore}
+            scannerId={scannerId}
+            total={totalMatches}
+            hasMore={hasMore}
+            onLoadMore={() => void loadMore()}
+            onRelax={() => onRelaxMinFootMatchChange(true)}
+            onOpenDetail={card => {
+              setFootProfileOpen(false)
+              setDetailCard(card)
+            }}
+          />
         </div>
       </div>
+
+      <KioskShoeDetailDrawer
+        open={Boolean(detailCard)}
+        card={detailCard}
+        scannerId={scannerId}
+        onClose={() => setDetailCard(null)}
+      />
+
+      <KioskFootProfileDrawer
+        open={footProfileOpen}
+        onClose={() => setFootProfileOpen(false)}
+        customerName={customerName}
+        scannerId={scannerId}
+        matchFootOnly={matchFootOnly}
+        onMatchFootOnlyChange={onMatchFootOnlyChange}
+        relaxMinFootMatch={relaxMinFootMatch}
+        onRelaxMinFootMatchChange={onRelaxMinFootMatchChange}
+        leftPanel={leftPanel}
+        livePrimaryFinding={livePrimaryFinding}
+        ballRegulatorOffsetMm={ballRegulatorOffsetMm}
+        onBallRegulatorOffsetChange={setBallRegulatorOffsetMm}
+        regulatorBallMm={regulatorBallMm}
+        regulatorLengthMm={regulatorLengthMm}
+        scan={scan}
+        setScan={setScan}
+        category={category}
+        onCategoryChange={onCategoryChangeFromSidebar}
+        sidebarEditable={sidebarEditable}
+        setSidebarEditable={setSidebarEditable}
+        matchUpdating={matchUpdating}
+        onUpdateMatch={fetchRecommendations}
+        onResetMeasurements={resetMeasurements}
+        measurementsResetDisabled={
+          !scannerId ||
+          !measurementsDirty ||
+          measurementResetting ||
+          matchUpdating
+        }
+        measurementResetting={measurementResetting}
+        leftLength={leftLength}
+        rightLength={rightLength}
+        leftWidth={leftWidth}
+        rightWidth={rightWidth}
+        leftBall={leftBall}
+        rightBall={rightBall}
+      />
     </section>
   )
 }
