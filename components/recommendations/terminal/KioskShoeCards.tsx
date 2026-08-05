@@ -74,6 +74,8 @@ function formatStockLabel (raw: string | null | undefined): string {
   return s
 }
 
+// sdsdf
+
 function ColorSwatchRow ({
   colors,
   colorId,
