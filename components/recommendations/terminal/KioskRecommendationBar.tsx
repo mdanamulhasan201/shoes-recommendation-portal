@@ -6,6 +6,7 @@ export type KioskRecommendationBarProps = {
   customerName: string
   onOpenFootProfile: () => void
   onOpenConsultation?: () => void
+  filterActiveCount?: number
 }
 
 export function KioskRecommendationBar ({
@@ -13,7 +14,8 @@ export function KioskRecommendationBar ({
   category,
   customerName,
   onOpenFootProfile,
-  onOpenConsultation
+  onOpenConsultation,
+  filterActiveCount = 0
 }: KioskRecommendationBarProps) {
   return (
     <section className='rounded-[1.5rem] border border-white/12 bg-zinc-900/70 px-5 py-5 shadow-[0_16px_48px_rgba(0,0,0,0.35)] backdrop-blur-md sm:px-6'>
@@ -45,9 +47,14 @@ export function KioskRecommendationBar ({
             <button
               type='button'
               onClick={onOpenConsultation}
-              className='inline-flex min-h-12 touch-manipulation cursor-pointer items-center rounded-2xl border border-white/14 bg-white/5 px-5 text-[15px] font-semibold text-white/80 transition active:scale-[0.98] hover:bg-white/10 [-webkit-tap-highlight-color:transparent]'
+              className='inline-flex min-h-12 touch-manipulation cursor-pointer items-center gap-2 rounded-2xl border border-white/14 bg-white/5 px-5 text-[15px] font-semibold text-white/80 transition active:scale-[0.98] hover:bg-white/10 [-webkit-tap-highlight-color:transparent]'
             >
-              Beratung
+              Alle Filter
+              {filterActiveCount > 0 ? (
+                <span className='inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[hsl(var(--primary))] px-1.5 text-[11px] font-bold text-white'>
+                  {filterActiveCount}
+                </span>
+              ) : null}
             </button>
           ) : null}
         </div>

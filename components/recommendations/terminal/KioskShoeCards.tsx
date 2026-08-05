@@ -420,7 +420,7 @@ export function KioskCompactShoeCard ({ card, onOpen, onAddFitting }: CompactPro
 
         <div className='flex min-h-11 w-full items-center justify-between gap-3 rounded-full border border-emerald-400/35 bg-zinc-950/60 px-4 py-2.5 sm:min-h-12 sm:px-5'>
           <span className='text-[13px] font-medium text-white/50 sm:text-sm'>
-            Recommended size
+            Empfohlene Größe
           </span>
           <span className='text-[15px] font-bold tabular-nums text-[hsl(var(--primary))] sm:text-base'>
             EU {sizeLabel}
