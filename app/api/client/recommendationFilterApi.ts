@@ -35,52 +35,51 @@ function asRecord (v: unknown): Record<string, unknown> | null {
 
 function normalizeBrands (raw: unknown): FilterCatalogBrand[] {
   if (!Array.isArray(raw)) return []
-  return raw
-    .map((item, i) => {
-      if (typeof item === 'string') {
-        const name = item.trim()
-        return name ? { id: `brand-${name}`, brand_name: name } : null
-      }
-      const o = asRecord(item)
-      if (!o) return null
-      const brand_name =
-        (typeof o.brand_name === 'string' && o.brand_name) ||
-        (typeof o.name === 'string' && o.name) ||
-        (typeof o.brand === 'string' && o.brand) ||
-        null
-      const id =
-        (typeof o.id === 'string' && o.id) ||
-        (brand_name ? `brand-${brand_name}` : `brand-${i}`)
-      return brand_name ? { id, brand_name } : null
-    })
-    .filter((x): x is FilterCatalogBrand => Boolean(x))
+  const out: FilterCatalogBrand[] = []
+  raw.forEach(item => {
+    if (typeof item === 'string') {
+      const name = item.trim()
+      if (name) out.push({ id: `brand-${name}`, brand_name: name })
+      return
+    }
+    const o = asRecord(item)
+    if (!o) return
+    const brand_name =
+      (typeof o.brand_name === 'string' && o.brand_name) ||
+      (typeof o.name === 'string' && o.name) ||
+      (typeof o.brand === 'string' && o.brand) ||
+      null
+    if (!brand_name) return
+    const id = (typeof o.id === 'string' && o.id) || `brand-${brand_name}`
+    out.push({ id, brand_name })
+  })
+  return out
 }
 
 function normalizeColors (raw: unknown): FilterCatalogColor[] {
   if (!Array.isArray(raw)) return []
-  return raw
-    .map(item => {
-      if (typeof item === 'string') {
-        const s = item.trim()
-        if (!s) return null
-        return s.startsWith('#')
-          ? { name: s, code: s }
-          : { name: s, code: s }
-      }
-      const o = asRecord(item)
-      if (!o) return null
-      const name =
-        (typeof o.name === 'string' && o.name) ||
-        (typeof o.color_name === 'string' && o.color_name) ||
-        null
-      const code =
-        (typeof o.code === 'string' && o.code) ||
-        (typeof o.hex === 'string' && o.hex) ||
-        (typeof o.color === 'string' && o.color) ||
-        null
-      return code || name ? { name, code } : null
-    })
-    .filter((x): x is FilterCatalogColor => Boolean(x))
+  const out: FilterCatalogColor[] = []
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      const s = item.trim()
+      if (!s) continue
+      out.push({ name: s, code: s })
+      continue
+    }
+    const o = asRecord(item)
+    if (!o) continue
+    const name =
+      (typeof o.name === 'string' && o.name) ||
+      (typeof o.color_name === 'string' && o.color_name) ||
+      null
+    const code =
+      (typeof o.code === 'string' && o.code) ||
+      (typeof o.hex === 'string' && o.hex) ||
+      (typeof o.color === 'string' && o.color) ||
+      null
+    if (code || name) out.push({ name, code })
+  }
+  return out
 }
 
 /** Accept `{ system, value }`, plain `"43"` / `43`, or `{ size: "43" }`. */
