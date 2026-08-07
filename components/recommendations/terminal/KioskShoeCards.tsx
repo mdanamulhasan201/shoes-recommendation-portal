@@ -139,13 +139,6 @@ type SharedProps = {
   onOpen: (card: ShoeCard) => void
   reason?: string
   rank?: number
-  onAddFitting?: (card: ShoeCard, meta: CompactFittingMeta) => void
-}
-
-export type CompactFittingMeta = {
-  colorId: string | null
-  colorLabel: string | null
-  image: string | null
 }
 
 type CompactProps = SharedProps
@@ -154,8 +147,7 @@ export function KioskTopShoeCard ({
   card,
   onOpen,
   reason,
-  rank,
-  onAddFitting
+  rank
 }: SharedProps) {
   const go = () => onOpen(card)
   const [colorId, setColorId] = useState<string | null>(
@@ -287,27 +279,9 @@ export function KioskTopShoeCard ({
             type='button'
             onClick={e => {
               e.stopPropagation()
-              onAddFitting?.(card, {
-                colorId,
-                colorLabel:
-                  card.colors?.find(c => c.id === colorId)?.name?.trim() || null,
-                image: src
-              })
-            }}
-            className='inline-flex min-h-12 flex-1 touch-manipulation cursor-pointer items-center justify-center gap-1.5 rounded-full bg-[hsl(var(--primary))] px-4 text-[15px] font-bold text-zinc-950 transition active:scale-[0.98] hover:brightness-110 sm:min-h-14 sm:text-base'
-          >
-            <span aria-hidden className='text-lg leading-none'>
-              +
-            </span>
-            Fitting
-          </button>
-          <button
-            type='button'
-            onClick={e => {
-              e.stopPropagation()
               go()
             }}
-            className='inline-flex min-h-12 min-w-[6.5rem] touch-manipulation cursor-pointer items-center justify-center rounded-full border border-white/25 bg-transparent px-4 text-[15px] font-semibold text-white transition active:scale-[0.98] hover:bg-white/6 sm:min-h-14'
+            className='inline-flex min-h-12 w-full touch-manipulation cursor-pointer items-center justify-center rounded-full border border-white/25 bg-transparent px-4 text-[15px] font-semibold text-white transition active:scale-[0.98] hover:bg-white/6 sm:min-h-14'
           >
             Details
           </button>
@@ -317,7 +291,7 @@ export function KioskTopShoeCard ({
   )
 }
 
-export function KioskCompactShoeCard ({ card, onOpen, onAddFitting }: CompactProps) {
+export function KioskCompactShoeCard ({ card, onOpen }: CompactProps) {
   const go = () => onOpen(card)
   const [colorId, setColorId] = useState<string | null>(
     card.colors?.[0]?.id ?? null
@@ -436,27 +410,9 @@ export function KioskCompactShoeCard ({ card, onOpen, onAddFitting }: CompactPro
             type='button'
             onClick={e => {
               e.stopPropagation()
-              onAddFitting?.(card, {
-                colorId,
-                colorLabel:
-                  card.colors?.find(c => c.id === colorId)?.name?.trim() || null,
-                image: src
-              })
-            }}
-            className='inline-flex min-h-12 flex-1 touch-manipulation cursor-pointer items-center justify-center gap-1.5 rounded-full bg-[hsl(var(--primary))] px-4 text-[15px] font-bold text-zinc-950 transition active:scale-[0.98] hover:brightness-110'
-          >
-            <span aria-hidden className='text-lg leading-none'>
-              +
-            </span>
-            Fitting
-          </button>
-          <button
-            type='button'
-            onClick={e => {
-              e.stopPropagation()
               go()
             }}
-            className='inline-flex min-h-12 min-w-[6.5rem] touch-manipulation cursor-pointer items-center justify-center rounded-full border border-white/25 bg-transparent px-4 text-[15px] font-semibold text-white transition active:scale-[0.98] hover:bg-white/6'
+            className='inline-flex min-h-12 w-full touch-manipulation cursor-pointer items-center justify-center rounded-full border border-white/25 bg-transparent px-4 text-[15px] font-semibold text-white transition active:scale-[0.98] hover:bg-white/6'
           >
             Details
           </button>

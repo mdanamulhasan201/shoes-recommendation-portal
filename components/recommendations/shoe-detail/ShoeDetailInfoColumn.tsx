@@ -36,6 +36,9 @@ export type ShoeDetailInfoColumnProps = {
   addToCartSubmitting: boolean
   addToCartError: string | null
   onAddToCart: () => void | Promise<void>
+  addToFittingSubmitting?: boolean
+  addToFittingError?: string | null
+  onAddToFitting?: () => void | Promise<void>
   onBackToSelection: () => void
 }
 
@@ -82,6 +85,9 @@ export function ShoeDetailInfoColumn ({
   addToCartSubmitting,
   addToCartError,
   onAddToCart,
+  addToFittingSubmitting = false,
+  addToFittingError = null,
+  onAddToFitting,
   onBackToSelection
 }: ShoeDetailInfoColumnProps) {
   const runningStyleJoined = joinDetailList(detail.running_style) || ''
@@ -279,41 +285,70 @@ export function ShoeDetailInfoColumn ({
         </p>
       </div>
 
-      <div className='flex flex-col gap-3 sm:flex-row'>
-        <button
-          type='button'
-          disabled={addToCartSubmitting || !selectedSizeId}
-          onClick={() => void onAddToCart()}
-          className='flex flex-1 items-center justify-center gap-2 rounded-full py-4 text-sm font-bold tracking-[0.1em] disabled:cursor-not-allowed disabled:opacity-55'
-          style={{
-            background: accentColor,
-            color: '#fff',
-            boxShadow: '0 12px 28px rgba(96,164,133,0.35)'
-          }}
-        >
-          <svg width='18' height='18' viewBox='0 0 24 24' fill='none' aria-hidden>
-            <path
-              d='M6 6h15l-1.5 9h-12L6 6zm0 0L5 3H2'
-              stroke='currentColor'
-              strokeWidth='2'
-              strokeLinecap='round'
-              strokeLinejoin='round'
-            />
-            <circle cx='9' cy='20' r='1.5' fill='currentColor' />
-            <circle cx='18' cy='20' r='1.5' fill='currentColor' />
-          </svg>
-          {addToCartSubmitting ? 'Wird hinzugefügt…' : 'In den Warenkorb'}
-        </button>
+      <div className='flex flex-col gap-3'>
+        <div className='flex flex-col gap-3 sm:flex-row'>
+          <button
+            type='button'
+            disabled={addToCartSubmitting || !selectedSizeId}
+            onClick={() => void onAddToCart()}
+            className='flex flex-1 items-center justify-center gap-2 rounded-full py-4 text-sm font-bold tracking-[0.1em] disabled:cursor-not-allowed disabled:opacity-55'
+            style={{
+              background: accentColor,
+              color: '#fff',
+              boxShadow: '0 12px 28px rgba(96,164,133,0.35)'
+            }}
+          >
+            <svg width='18' height='18' viewBox='0 0 24 24' fill='none' aria-hidden>
+              <path
+                d='M6 6h15l-1.5 9h-12L6 6zm0 0L5 3H2'
+                stroke='currentColor'
+                strokeWidth='2'
+                strokeLinecap='round'
+                strokeLinejoin='round'
+              />
+              <circle cx='9' cy='20' r='1.5' fill='currentColor' />
+              <circle cx='18' cy='20' r='1.5' fill='currentColor' />
+            </svg>
+            {addToCartSubmitting ? 'Wird hinzugefügt…' : 'In den Warenkorb'}
+          </button>
+          {onAddToFitting ? (
+            <button
+              type='button'
+              disabled={
+                addToFittingSubmitting ||
+                addToCartSubmitting ||
+                !selectedSizeId
+              }
+              onClick={() => void onAddToFitting()}
+              className='flex flex-1 items-center justify-center gap-1.5 rounded-full py-4 text-sm font-bold tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-55'
+              style={{
+                background: accentColor,
+                color: '#0a0a0a',
+                boxShadow: '0 12px 28px rgba(96,164,133,0.28)'
+              }}
+            >
+              <span aria-hidden className='text-lg leading-none'>
+                +
+              </span>
+              {addToFittingSubmitting ? 'Wird hinzugefügt…' : 'Fitting'}
+            </button>
+          ) : null}
+        </div>
         <button
           type='button'
           onClick={onBackToSelection}
-          className='flex-1 rounded-full border border-white/25 bg-transparent py-4 text-sm font-bold tracking-[0.08em] text-white transition-colors hover:bg-white/[0.06]'
+          className='w-full rounded-full border border-white/25 bg-transparent py-4 text-sm font-bold tracking-[0.08em] text-white transition-colors hover:bg-white/[0.06]'
         >
           Zurück zur Auswahl
         </button>
       </div>
       {addToCartError ? (
         <p className='text-center text-xs leading-relaxed text-red-400'>{addToCartError}</p>
+      ) : null}
+      {addToFittingError ? (
+        <p className='text-center text-xs leading-relaxed text-red-400'>
+          {addToFittingError}
+        </p>
       ) : null}
     </div>
   )

@@ -235,6 +235,7 @@ export default function KioskRecommendationsPage () {
     EMPTY_CATALOGUE_FILTERS
   )
   const [detailCard, setDetailCard] = useState<ShoeCard | null>(null)
+  const [detailFileId, setDetailFileId] = useState<string | null>(null)
 
   const openFootProfile = (tab: FootProfileDrawerTab = 'profile') => {
     setFootProfileTab(tab)
@@ -794,9 +795,10 @@ export default function KioskRecommendationsPage () {
             hasMore={hasMore}
             onLoadMore={() => void loadMore()}
             onRelax={() => onRelaxMinFootMatchChange(true)}
-            onOpenDetail={card => {
+            onOpenDetail={(card, options) => {
               setFootProfileOpen(false)
               setDetailCard(card)
+              setDetailFileId(options?.fileId?.trim() || null)
             }}
           />
         </div>
@@ -805,8 +807,11 @@ export default function KioskRecommendationsPage () {
       <KioskShoeDetailDrawer
         open={Boolean(detailCard)}
         card={detailCard}
-        scannerId={scannerId}
-        onClose={() => setDetailCard(null)}
+        scannerId={detailFileId || scannerId}
+        onClose={() => {
+          setDetailCard(null)
+          setDetailFileId(null)
+        }}
       />
 
       <KioskFootProfileDrawer
