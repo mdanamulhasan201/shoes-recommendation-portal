@@ -14,9 +14,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// export const metadata: Metadata = {
+//   title: "feetf1rst",
+//   description: "feetf1rst",
+// };
+
 export const metadata: Metadata = {
-  title: "feetf1rst",
-  description: "feetf1rst",
+  title: "Dashboard",
+  description: "Dashboard",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({
