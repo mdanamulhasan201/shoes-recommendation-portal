@@ -10,9 +10,8 @@ import {
 /**
  * Hardware mode from GET /v3/foot-scanners/admin/get-scanner-data.
  *
- * Invariant (backend + UI): exactly ONE of these is true — never both:
- * - XPOD_S  → single bay (left then right)
- * - XPOD_SS → double bay (one pass for both feet)
+ * - single → feetf1rst single scanner (left then right)
+ * - double → feetf1rst double scanner (one pass for both feet)
  */
 export type ScannerHardwareMode = ExclusiveXpodMode
 
@@ -37,23 +36,14 @@ export function useScannerHardwareMode (): {
         const data = await getScannerAdminData()
         if (cancelled) return
 
-        const resolved = resolveExclusiveXpodMode(data.XPOD_S, data.XPOD_SS)
-        if (!resolved) {
-          setMode(null)
-          setError(
-            'Ungültiger Scannermodus: genau eines von XPOD_S oder XPOD_SS muss true sein.'
-          )
-          return
-        }
-
-        setMode(resolved)
+        setMode(resolveExclusiveXpodMode(data.XPOD_S, data.XPOD_SS))
       } catch (err) {
         if (cancelled) return
         setMode(null)
         setError(
           err instanceof Error
             ? err.message
-            : 'Scannermodus konnte nicht geladen werden.'
+            : 'Scanner-Einstellungen konnten nicht geladen werden.'
         )
       } finally {
         if (!cancelled) setLoading(false)

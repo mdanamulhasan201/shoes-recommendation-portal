@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
-/** Simulated scan duration when the real XPOD stack is not present (matches ScanScreen). */
+/** Simulated scan duration when hardware is not present (matches ScanScreen). */
 export const SCANTOOL_SIMULATED_SCAN_MS = 4500
 /** Dual-bay simulation is slightly longer — both feet in one pass. */
 export const SCANTOOL_SIMULATED_BOTH_MS = 6500
@@ -153,7 +153,7 @@ export function useScantoolEnsureReady (): {
         setError('Scanner-Hardware nicht gefunden (Strom/USB/Treiber).')
       } else if (status === 'no-software') {
         setReady(true)
-        setError('XPOD_Rocket.exe nicht gefunden.')
+        setError('Scanner-Software nicht gefunden.')
       } else {
         setReady(true)
         setError('Scanner-Hinweis: Verbindung unsicher — Scan trotzdem versuchen.')
@@ -177,8 +177,8 @@ export function useScantoolEnsureReady (): {
  * Drives left / right / both-foot capture via URL hashes + WebView callbacks
  * when `startedFromScantool` is set; otherwise runs a timed simulation.
  *
- * - left/right → XPOD_S (single bay)
- * - both → XPOD_SS (double bay, one Rocket pass)
+ * - left/right → feetf1rst single scanner
+ * - both → feetf1rst double scanner (one pass)
  */
 export function useScantoolFootScan ({
   scanningPhase,
@@ -297,7 +297,7 @@ export function useScantoolFootScan ({
 }
 
 /**
- * Runs XPOD `#save` + desktop multipart upload when in the Scantool shell.
+ * Runs `#save` + desktop multipart upload when in the Scantool shell.
  * Exposes live upload % from `window.scantoolUploadProgress` (desktop app).
  * In a normal browser, returns true immediately.
  */

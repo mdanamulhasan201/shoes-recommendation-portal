@@ -35,7 +35,7 @@ export type UpdateScannerAdminPayload = {
   city?: string
 }
 
-/** Exactly one of XPOD_S / XPOD_SS may be true — never both. */
+/** feetf1rst single bay vs double bay hardware. */
 export type ExclusiveXpodMode = 'single' | 'double'
 
 type Envelope = {
@@ -45,31 +45,37 @@ type Envelope = {
 }
 
 /**
- * Resolve hardware mode from API flags.
- * Rule: exactly one true.
- * - XPOD_S  → single
- * - XPOD_SS → double
- * - both true / both false → null (invalid)
+ * Resolve hardware mode from backend flags (API still uses XPOD_S / XPOD_SS).
+ * - single → feetf1rst single scanner (left then right)
+ * - double → feetf1rst double scanner (one pass)
+ * Never returns null — defaults to single so the kiosk UI never dead-ends.
  */
 export function resolveExclusiveXpodMode (
   XPOD_S: boolean,
   XPOD_SS: boolean
-): ExclusiveXpodMode | null {
-  if (XPOD_S && !XPOD_SS) return 'single'
+): ExclusiveXpodMode {
   if (XPOD_SS && !XPOD_S) return 'double'
-  return null
+  // single, both, or neither → single (safe default)
+  return 'single'
 }
 
 function normalizeData (raw: ScannerAdminData): ScannerAdminData {
-  const xpodS = Boolean(raw.XPOD_S)
-  const xpodSs = Boolean(raw.XPOD_SS)
+  const flagS = Boolean(raw.XPOD_S)
+  const flagSs = Boolean(raw.XPOD_SS)
 
-  // If both arrived true, clear both so resolveExclusiveXpodMode fails loudly.
-  const bothTrue = xpodS && xpodSs
+  // Enforce exactly one true for API consistency.
+  let nextS = flagS
+  let nextSs = flagSs
+  if (flagS === flagSs) {
+    // both true or both false → single scanner
+    nextS = true
+    nextSs = false
+  }
+
   return {
     password: typeof raw.password === 'string' ? raw.password : '',
-    XPOD_S: bothTrue ? false : xpodS,
-    XPOD_SS: bothTrue ? false : xpodSs,
+    XPOD_S: nextS,
+    XPOD_SS: nextSs,
     country: typeof raw.country === 'string' ? raw.country : '',
     street: typeof raw.street === 'string' ? raw.street : '',
     zip: typeof raw.zip === 'string' ? raw.zip : '',

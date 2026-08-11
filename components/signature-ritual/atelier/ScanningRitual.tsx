@@ -67,7 +67,7 @@ export function ScanningRitual({
     syncKioskProfileForScantoolShell(order);
   }, [order]);
 
-  // Show scan UI as soon as XPOD mode is known — never block on Rocket warm-up.
+  // Show scan UI as soon as scanner type is known — never block on Rocket warm-up.
   useEffect(() => {
     if (modeLoading || !hardwareMode || phase !== null) return;
     setPhase(hardwareMode === "double" ? "both-prompt" : "left-prompt");
@@ -132,7 +132,7 @@ export function ScanningRitual({
       { eyebrow: string; title: string; cta: string; onTap: () => void }
     > = {
       "left-prompt": {
-        eyebrow: "Schritt 1 — Linker Fuß · XPOD_S",
+        eyebrow: "Schritt 1 — Linker Fuß · Single Scanner",
         title: "Platzieren Sie Ihren linken Fuß",
         cta: "Scan starten",
         onTap: () => setPhase("left-scan"),
@@ -150,7 +150,7 @@ export function ScanningRitual({
         onTap: () => setPhase("right-prompt"),
       },
       "right-prompt": {
-        eyebrow: "Schritt 2 — Rechter Fuß · XPOD_S",
+        eyebrow: "Schritt 2 — Rechter Fuß · Single Scanner",
         title: "Platzieren Sie Ihren rechten Fuß",
         cta: "Scan starten",
         onTap: () => setPhase("right-scan"),
@@ -182,13 +182,13 @@ export function ScanningRitual({
       { eyebrow: string; title: string; cta: string; onTap: () => void }
     > = {
       "both-prompt": {
-        eyebrow: "Doppelfuß · XPOD_SS",
+        eyebrow: "Double Scanner · Beide Füße",
         title: "Platzieren Sie beide Füße",
         cta: "Beide Füße scannen",
         onTap: () => setPhase("both-scan"),
       },
       "both-scan": {
-        eyebrow: "Doppelfuß · XPOD_SS",
+        eyebrow: "Double Scanner · Beide Füße",
         title: "Beide Formen werden erfasst",
         cta: "",
         onTap: () => {},
@@ -224,13 +224,13 @@ export function ScanningRitual({
             className="text-[0.65rem] uppercase tracking-[0.4em]"
             style={{ color: SCAN.hint }}
           >
-            Scannermodus wird geladen…
+            Scanner-Einstellungen werden geladen…
           </p>
         ) : (
           <p className="max-w-md text-[0.75rem] leading-relaxed tracking-[0.06em] text-red-300/95">
             {scannerReadyError ||
               modeLoadError ||
-              "Ungültiger Scannermodus: genau eines von XPOD_S oder XPOD_SS muss true sein."}
+              "Bitte in den Einstellungen feetf1rst Single Scanner oder Double Scanner wählen."}
           </p>
         )}
       </motion.section>

@@ -53,7 +53,7 @@ const ScanScreen = ({
   const { saveScan, isSaving, uploadProgress } = useScantoolSaveAfterScan()
   const showUploadOverlay = isSaving && uploadProgress != null
 
-  // Show scan UI as soon as XPOD mode is known — never block on Rocket warm-up.
+  // Show scan UI as soon as scanner type is known — never block on Rocket warm-up.
   useEffect(() => {
     if (modeLoading || !hardwareMode || step !== null) return
     setStep(hardwareMode === 'double' ? 'setup-both' : 'setup-left')
@@ -200,7 +200,7 @@ const ScanScreen = ({
             className='kiosk-mono tracking-[0.28em]'
             style={{ fontSize: 'clamp(0.7rem, 2.5vw, 0.95rem)', opacity: 0.55 }}
           >
-            SCANNERMODUS WIRD GELADEN…
+            SCANNER-EINSTELLUNGEN LADEN…
           </p>
         ) : (
           <p
@@ -209,7 +209,7 @@ const ScanScreen = ({
           >
             {scannerReadyError ||
               modeError ||
-              'Ungültiger Scannermodus: genau eines von XPOD_S oder XPOD_SS muss true sein.'}
+              'Bitte in den Einstellungen feetf1rst Single Scanner oder Double Scanner wählen.'}
           </p>
         )}
       </div>
@@ -353,7 +353,9 @@ const ScanScreen = ({
               opacity: 0.45
             }}
           >
-            {isDoubleMode ? 'DOPPELFUSS (XPOD_SS)' : 'EINZELFUSS (XPOD_S)'}
+            {isDoubleMode
+              ? 'FEETF1RST DOUBLE SCANNER'
+              : 'FEETF1RST SINGLE SCANNER'}
           </p>
           <h2
             className='kiosk-display text-inherit mb-6 text-center leading-tight tracking-[0.06em]'

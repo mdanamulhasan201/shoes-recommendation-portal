@@ -359,26 +359,26 @@ export function ProfileScannerSettings ({ onLogout, onOpenCredits }: Props) {
           <div className='min-w-0 space-y-6'>
             <section>
               <p className='text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-300/65'>
-                Scanner-Modus
+                Scanner-Typ
               </p>
               <p className='mt-1 text-sm text-white/45'>
-                Genau eines muss true sein — Single (XPOD_S) oder Double (XPOD_SS), nie beides.
+                Wähle genau einen Typ — Single Scanner oder Double Scanner.
               </p>
               <div
                 role='radiogroup'
-                aria-label='Scanner-Modus'
+                aria-label='Scanner-Typ'
                 className='mt-4 grid grid-cols-2 gap-3'
               >
                 <ModeCard
                   active={form.mode === 'single'}
-                  title='Single Scanner'
-                  subtitle='XPOD_S'
+                  title='feetf1rst Single Scanner'
+                  subtitle='Links, dann rechts'
                   onClick={() => patchField('mode', 'single')}
                 />
                 <ModeCard
                   active={form.mode === 'double'}
-                  title='Double Scanner'
-                  subtitle='XPOD_SS'
+                  title='feetf1rst Double Scanner'
+                  subtitle='Beide Füße gleichzeitig'
                   onClick={() => patchField('mode', 'double')}
                 />
               </div>
