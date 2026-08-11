@@ -13,6 +13,8 @@ const SCAN_BOTH_REAL_TIMEOUT_MS = 240_000
 const SAVE_REAL_TIMEOUT_MS = 600_000
 /** Brief pause so the user can see 100% before the overlay dismisses. */
 const SAVE_COMPLETE_HOLD_MS = 450
+/** Soft probe only — must never block the scan UI. */
+const CHECK_SCANNER_TIMEOUT_MS = 45_000
 
 type ScannerCallbackName =
   | 'setScanLeftFinished'
@@ -21,6 +23,15 @@ type ScannerCallbackName =
   | 'setSaveFinished'
 
 export type ScanFootPhase = 'left' | 'right' | 'both'
+
+type ScannerHash =
+  | '#scanLeft'
+  | '#scanRight'
+  | '#scanBoth'
+  | '#save'
+  | '#checkScanner'
+  | '#startScanner'
+  | '#scannerExit'
 
 declare global {
   interface Window {
@@ -41,6 +52,28 @@ function readScantoolShellFlag (): boolean {
   return window.localStorage.getItem('startedFromScantool') === 'true'
 }
 
+/**
+ * WebView2 host watches CoreWebView2.Source / SourceChanged.
+ * Next.js router.push often does soft history updates that do NOT reliably
+ * fire SourceChanged — assign location.hash instead (toggle if already set).
+ */
+function assignScannerHash (hash: ScannerHash): void {
+  if (typeof window === 'undefined') return
+  const base = window.location.pathname + window.location.search
+  if (window.location.hash === hash) {
+    window.history.replaceState(null, '', base)
+  }
+  window.location.hash = hash
+}
+
+function clearScannerHashInPlace (): void {
+  if (typeof window === 'undefined') return
+  const base = window.location.pathname + window.location.search
+  if (window.location.hash) {
+    window.history.replaceState(null, '', base)
+  }
+}
+
 export function useScantoolShellActive (): boolean {
   const [active, setActive] = useState(readScantoolShellFlag)
   useEffect(() => {
@@ -54,29 +87,22 @@ export function useScantoolHashNav () {
   const pathname = usePathname()
 
   const clearScanHash = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      window.history.replaceState(
-        null,
-        '',
-        window.location.pathname + window.location.search
-      )
-    }
+    clearScannerHashInPlace()
+    // Keep Next.js router path in sync without re-pushing a hash.
     router.replace(pathname)
   }, [pathname, router])
 
-  const pushScannerHash = useCallback(
-    (hash: '#scanLeft' | '#scanRight' | '#scanBoth' | '#save' | '#checkScanner' | '#startScanner') => {
-      router.push(`${pathname}${hash}`)
-    },
-    [pathname, router]
-  )
+  const pushScannerHash = useCallback((hash: ScannerHash) => {
+    assignScannerHash(hash)
+  }, [])
 
   return { clearScanHash, pushScannerHash }
 }
 
 /**
- * Warms Rocket via #checkScanner once when the scan UI mounts inside Scantool.
- * Safe to call from ScanScreen / ScanningRitual — no-ops in a normal browser.
+ * Background Rocket warm via #checkScanner.
+ * NEVER blocks the scan UI — mode screen shows immediately; desktop also
+ * warms on first #scan* via EnsureScanSessionReadyAsync.
  */
 export function useScantoolEnsureReady (): {
   ready: boolean
@@ -84,8 +110,9 @@ export function useScantoolEnsureReady (): {
   error: string | null
 } {
   const { clearScanHash, pushScannerHash } = useScantoolHashNav()
-  const [ready, setReady] = useState(() => !readScantoolShellFlag())
-  const [checking, setChecking] = useState(() => readScantoolShellFlag())
+  // Always allow the scan UI — warm-up is best-effort in the background.
+  const [ready, setReady] = useState(true)
+  const [checking, setChecking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const startedRef = useRef(false)
 
@@ -106,43 +133,40 @@ export function useScantoolEnsureReady (): {
       if (resolved) return
       resolved = true
       setChecking(false)
-      setReady(false)
-      setError('Scanner-Prüfung zeitüberschritten. Bitte App neu starten.')
-      clearScanHash()
-    }, 90_000)
+      // Still ready — first foot scan will warm Rocket itself.
+      setReady(true)
+      clearScannerHashInPlace()
+    }, CHECK_SCANNER_TIMEOUT_MS)
 
     ;(window as Window).setScannerCheckResult = (status?: string) => {
       if (resolved) return
       resolved = true
       window.clearTimeout(timeout)
       window.setScannerCheckResult = undefined
-      clearScanHash()
+      clearScannerHashInPlace()
       setChecking(false)
       if (status === 'connected') {
         setReady(true)
         setError(null)
       } else if (status === 'no-device') {
-        setReady(false)
+        setReady(true)
         setError('Scanner-Hardware nicht gefunden (Strom/USB/Treiber).')
       } else if (status === 'no-software') {
-        setReady(false)
+        setReady(true)
         setError('XPOD_Rocket.exe nicht gefunden.')
       } else {
-        setReady(false)
-        setError('Scanner nicht bereit. Bitte erneut versuchen.')
+        setReady(true)
+        setError('Scanner-Hinweis: Verbindung unsicher — Scan trotzdem versuchen.')
       }
     }
 
-    // Small delay so a concurrent page SourceChanged (Rocket pre-warm) can
-    // register first; desktop queues #checkScanner if still busy.
     const pushTimer = window.setTimeout(() => {
       if (!resolved) pushScannerHash('#checkScanner')
-    }, 50)
+    }, 80)
 
     return () => {
       window.clearTimeout(timeout)
       window.clearTimeout(pushTimer)
-      // Do not clear the callback while the probe is still in flight.
     }
   }, [clearScanHash, pushScannerHash])
 
@@ -266,10 +290,6 @@ export function useScantoolFootScan ({
     return () => {
       cancelAnimationFrame(frame)
       clearTimeout(timeout)
-      // Only clear if we still own the callback (not replaced by a newer run).
-      if (window[callbackName] && !resolved) {
-        // Keep callback alive until resolved — do not wipe mid-flight on dep change.
-      }
     }
   }, [scanningPhase, clearScanHash, pushScannerHash])
 
@@ -288,8 +308,6 @@ export function useScantoolSaveAfterScan (): {
   uploadProgress: number | null
 } {
   const { clearScanHash } = useScantoolHashNav()
-  const router = useRouter()
-  const pathname = usePathname()
   const [isSaving, setIsSaving] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const hasRealProgressRef = useRef(false)
@@ -334,7 +352,7 @@ export function useScantoolSaveAfterScan (): {
           window.clearTimeout(timeout)
           resolve(data === 'true')
         }
-        router.push(`${pathname}#save`)
+        assignScannerHash('#save')
       })
     } finally {
       window.clearInterval(softFloor)
@@ -353,7 +371,7 @@ export function useScantoolSaveAfterScan (): {
     setIsSaving(false)
     saveInFlightRef.current = false
     return ok
-  }, [clearScanHash, pathname, router])
+  }, [clearScanHash])
 
   return { saveScan, isSaving, uploadProgress }
 }

@@ -55,7 +55,11 @@ export default function KioskScanPage () {
       typeof window !== 'undefined' &&
       window.localStorage.getItem('startedFromScantool') === 'true'
     ) {
-      router.replace(`${pathname}#scannerExit`)
+      const base = window.location.pathname + window.location.search
+      if (window.location.hash === '#scannerExit') {
+        window.history.replaceState(null, '', base)
+      }
+      window.location.hash = '#scannerExit'
       // Brief grace period so the WebView2 SourceChanged event fires before
       // we navigate away. The actual Rocket-exit takes longer, but it runs
       // asynchronously inside the desktop process.

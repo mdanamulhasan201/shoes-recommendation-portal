@@ -56,8 +56,6 @@ export function ScanningRitual({
   } = useScannerHardwareMode();
   const isDoubleMode = hardwareMode === "double";
   const {
-    ready: scannerReady,
-    checking: scannerChecking,
     error: scannerReadyError,
   } = useScantoolEnsureReady();
 
@@ -69,18 +67,11 @@ export function ScanningRitual({
     syncKioskProfileForScantoolShell(order);
   }, [order]);
 
-  // Start on the correct first screen once XPOD mode is known AND Rocket is warm.
+  // Show scan UI as soon as XPOD mode is known — never block on Rocket warm-up.
   useEffect(() => {
-    if (
-      modeLoading ||
-      scannerChecking ||
-      !hardwareMode ||
-      !scannerReady ||
-      phase !== null
-    )
-      return;
+    if (modeLoading || !hardwareMode || phase !== null) return;
     setPhase(hardwareMode === "double" ? "both-prompt" : "left-prompt");
-  }, [modeLoading, scannerChecking, hardwareMode, scannerReady, phase]);
+  }, [modeLoading, hardwareMode, phase]);
 
   useEffect(() => {
     if (modeLoadError) setScannerError(modeLoadError);
@@ -221,21 +212,19 @@ export function ScanningRitual({
     return isDoubleMode ? dual : single;
   }, [goToFinalAfterSave, onComplete, isDoubleMode]);
 
-  if (modeLoading || scannerChecking || !phase) {
+  if (modeLoading || !phase) {
     return (
       <motion.section
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center"
       >
-        {modeLoading || scannerChecking ? (
+        {modeLoading ? (
           <p
             className="text-[0.65rem] uppercase tracking-[0.4em]"
             style={{ color: SCAN.hint }}
           >
-            {scannerChecking
-              ? "Scanner wird vorbereitet…"
-              : "Scannermodus wird geladen…"}
+            Scannermodus wird geladen…
           </p>
         ) : (
           <p className="max-w-md text-[0.75rem] leading-relaxed tracking-[0.06em] text-red-300/95">

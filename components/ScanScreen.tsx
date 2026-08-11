@@ -43,8 +43,6 @@ const ScanScreen = ({
   } = useScannerHardwareMode()
   const isDoubleMode = hardwareMode === 'double'
   const {
-    ready: scannerReady,
-    checking: scannerChecking,
     error: scannerReadyError
   } = useScantoolEnsureReady()
 
@@ -55,12 +53,11 @@ const ScanScreen = ({
   const { saveScan, isSaving, uploadProgress } = useScantoolSaveAfterScan()
   const showUploadOverlay = isSaving && uploadProgress != null
 
-  // Once API mode is known AND Rocket is warm, start on the correct first screen.
+  // Show scan UI as soon as XPOD mode is known — never block on Rocket warm-up.
   useEffect(() => {
-    if (modeLoading || scannerChecking || !hardwareMode || !scannerReady || step !== null)
-      return
+    if (modeLoading || !hardwareMode || step !== null) return
     setStep(hardwareMode === 'double' ? 'setup-both' : 'setup-left')
-  }, [modeLoading, scannerChecking, hardwareMode, scannerReady, step])
+  }, [modeLoading, hardwareMode, step])
 
   useEffect(() => {
     if (modeError) setScannerError(modeError)
@@ -193,19 +190,17 @@ const ScanScreen = ({
     setStep('finished')
   }, [manualBetweenFeet, step, saveScan])
 
-  if (modeLoading || scannerChecking || !step) {
+  if (modeLoading || !step) {
     return (
       <div
         className={`fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#050505] px-6 text-white ${className}`.trim()}
       >
-        {modeLoading || scannerChecking ? (
+        {modeLoading ? (
           <p
             className='kiosk-mono tracking-[0.28em]'
             style={{ fontSize: 'clamp(0.7rem, 2.5vw, 0.95rem)', opacity: 0.55 }}
           >
-            {scannerChecking
-              ? 'SCANNER WIRD VORBEREITET…'
-              : 'SCANNERMODUS WIRD GELADEN…'}
+            SCANNERMODUS WIRD GELADEN…
           </p>
         ) : (
           <p
