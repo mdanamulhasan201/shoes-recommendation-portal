@@ -3,16 +3,26 @@
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { matchScanCreditUserPassword } from '@/api/scanCreditApi'
-import { grantBuyCreditsAccess } from '@/app/lib/buyCreditsAccess'
+import { grantProfileAccess } from '@/app/lib/profileAccess'
 
 type Step = 'confirm' | 'password'
 
 type Props = {
   open: boolean
   onClose: () => void
+  /** Where to go after successful password (default: /profile). */
+  redirectTo?: string
+  confirmTitle?: string
+  confirmMessage?: string
 }
 
-export function BuyCreditsPasswordModal ({ open, onClose }: Props) {
+export function ProfilePasswordModal ({
+  open,
+  onClose,
+  redirectTo = '/profile',
+  confirmTitle = 'Profil öffnen?',
+  confirmMessage = 'Möchten Sie das Profil öffnen?'
+}: Props) {
   const router = useRouter()
   const [step, setStep] = useState<Step>('confirm')
   const [password, setPassword] = useState('')
@@ -43,7 +53,7 @@ export function BuyCreditsPasswordModal ({ open, onClose }: Props) {
     onClose()
   }
 
-  const onConfirmBuy = () => {
+  const onConfirmOpen = () => {
     setError(null)
     setStep('password')
   }
@@ -60,9 +70,9 @@ export function BuyCreditsPasswordModal ({ open, onClose }: Props) {
     setError(null)
     try {
       await matchScanCreditUserPassword(trimmed)
-      grantBuyCreditsAccess()
+      grantProfileAccess()
       onClose()
-      router.push('/buy-credits')
+      router.push(redirectTo)
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Passwort stimmt nicht überein.'
@@ -81,7 +91,7 @@ export function BuyCreditsPasswordModal ({ open, onClose }: Props) {
       <div
         role='dialog'
         aria-modal='true'
-        aria-labelledby='buy-credits-modal-title'
+        aria-labelledby='profile-password-modal-title'
         className='relative z-[101] w-full max-w-[min(100%,380px)] rounded-2xl border border-white/12 bg-[#141820] p-5 shadow-2xl sm:p-6'
         onClick={e => e.stopPropagation()}
         style={{
@@ -92,13 +102,13 @@ export function BuyCreditsPasswordModal ({ open, onClose }: Props) {
         {step === 'confirm' ? (
           <>
             <h2
-              id='buy-credits-modal-title'
+              id='profile-password-modal-title'
               className='text-base font-semibold text-white sm:text-lg'
             >
-              Credits kaufen?
+              {confirmTitle}
             </h2>
             <p className='mt-3 text-sm leading-relaxed text-white/65'>
-              Möchten Sie Credits kaufen?
+              {confirmMessage}
             </p>
             <div className='mt-6 flex flex-wrap gap-3'>
               <button
@@ -110,7 +120,7 @@ export function BuyCreditsPasswordModal ({ open, onClose }: Props) {
               </button>
               <button
                 type='button'
-                onClick={onConfirmBuy}
+                onClick={onConfirmOpen}
                 className='min-h-11 flex-1 cursor-pointer rounded-full border border-emerald-500/40 bg-emerald-500/15 px-4 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/25'
               >
                 Ja
@@ -120,7 +130,7 @@ export function BuyCreditsPasswordModal ({ open, onClose }: Props) {
         ) : (
           <form onSubmit={e => void onSubmitPassword(e)}>
             <h2
-              id='buy-credits-modal-title'
+              id='profile-password-modal-title'
               className='text-base font-semibold text-white sm:text-lg'
             >
               Passwort bestätigen
