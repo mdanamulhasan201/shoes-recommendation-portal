@@ -11,6 +11,7 @@ import {
 import { kioskFlowBackOrKiosk } from '../kiosk-flow-navigation'
 import {
   fetchLatestScreenerFile,
+  fetchScannerFileById,
   formatGermanTimestamp
 } from '@/api/scannerApi'
 
@@ -78,6 +79,14 @@ export default function KioskScanPage () {
     try {
       const flow = readKioskFlowState()
       const userId = flow.profile.id
+      const shellFileId = flow.scannerFile?.id
+      if (shellFileId !== undefined && shellFileId !== null) {
+        const full = await fetchScannerFileById(String(shellFileId))
+        if (full) {
+          writeKioskFlowState({ ...flow, scannerFile: full })
+          return
+        }
+      }
       if (userId !== undefined && userId !== null) {
         const latest = await fetchLatestScreenerFile(userId)
         if (latest) {

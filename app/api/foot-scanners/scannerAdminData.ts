@@ -35,24 +35,41 @@ export type UpdateScannerAdminPayload = {
   city?: string
 }
 
+/** Exactly one of XPOD_S / XPOD_SS may be true — never both. */
+export type ExclusiveXpodMode = 'single' | 'double'
+
 type Envelope = {
   success?: boolean
   message?: string
   data?: ScannerAdminData
 }
 
-function normalizeData (raw: ScannerAdminData): ScannerAdminData {
-  let xpodS = Boolean(raw.XPOD_S)
-  let xpodSs = Boolean(raw.XPOD_SS)
-  // Never keep both true — prefer Single if API ever returns both.
-  if (xpodS && xpodSs) {
-    xpodSs = false
-  }
+/**
+ * Resolve hardware mode from API flags.
+ * Rule: exactly one true.
+ * - XPOD_S  → single
+ * - XPOD_SS → double
+ * - both true / both false → null (invalid)
+ */
+export function resolveExclusiveXpodMode (
+  XPOD_S: boolean,
+  XPOD_SS: boolean
+): ExclusiveXpodMode | null {
+  if (XPOD_S && !XPOD_SS) return 'single'
+  if (XPOD_SS && !XPOD_S) return 'double'
+  return null
+}
 
+function normalizeData (raw: ScannerAdminData): ScannerAdminData {
+  const xpodS = Boolean(raw.XPOD_S)
+  const xpodSs = Boolean(raw.XPOD_SS)
+
+  // If both arrived true, clear both so resolveExclusiveXpodMode fails loudly.
+  const bothTrue = xpodS && xpodSs
   return {
     password: typeof raw.password === 'string' ? raw.password : '',
-    XPOD_S: xpodS,
-    XPOD_SS: xpodSs,
+    XPOD_S: bothTrue ? false : xpodS,
+    XPOD_SS: bothTrue ? false : xpodSs,
     country: typeof raw.country === 'string' ? raw.country : '',
     street: typeof raw.street === 'string' ? raw.street : '',
     zip: typeof raw.zip === 'string' ? raw.zip : '',
@@ -106,9 +123,12 @@ export async function updateScannerAdminData (
 ): Promise<ScannerAdminData> {
   const body: UpdateScannerAdminPayload = { ...payload }
 
-  // Never send both true.
-  if (body.XPOD_S === true) body.XPOD_SS = false
-  if (body.XPOD_SS === true) body.XPOD_S = false
+  // Exactly one true when either flag is sent — never both.
+  if (body.XPOD_S === true) {
+    body.XPOD_SS = false
+  } else if (body.XPOD_SS === true) {
+    body.XPOD_S = false
+  }
 
   try {
     const { data: json } = await axiosClient.patch<Envelope>(

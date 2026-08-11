@@ -21,7 +21,7 @@ import {
   type LocationSearchItem
 } from '@/api/locationApi'
 
-type ScannerMode = 'single' | 'double' | 'none'
+type ScannerMode = 'single' | 'double'
 
 type FormState = {
   password: string
@@ -39,11 +39,13 @@ type Props = {
 }
 
 function toForm (data: ScannerAdminData): FormState {
-  const mode: ScannerMode = data.XPOD_S
-    ? 'single'
-    : data.XPOD_SS
-      ? 'double'
-      : 'none'
+  // Exactly one flag must be true — never both.
+  const mode: ScannerMode =
+    data.XPOD_S && !data.XPOD_SS
+      ? 'single'
+      : data.XPOD_SS && !data.XPOD_S
+        ? 'double'
+        : 'single'
 
   return {
     password: data.password,
@@ -73,12 +75,9 @@ function buildPatch (
     if (current.mode === 'single') {
       patch.XPOD_S = true
       patch.XPOD_SS = false
-    } else if (current.mode === 'double') {
+    } else {
       patch.XPOD_SS = true
       patch.XPOD_S = false
-    } else {
-      patch.XPOD_S = false
-      patch.XPOD_SS = false
     }
   }
 
@@ -363,7 +362,7 @@ export function ProfileScannerSettings ({ onLogout, onOpenCredits }: Props) {
                 Scanner-Modus
               </p>
               <p className='mt-1 text-sm text-white/45'>
-                Nur aktiv wenn true — Single oder Double, nie beides.
+                Genau eines muss true sein — Single (XPOD_S) oder Double (XPOD_SS), nie beides.
               </p>
               <div
                 role='radiogroup'
@@ -374,23 +373,13 @@ export function ProfileScannerSettings ({ onLogout, onOpenCredits }: Props) {
                   active={form.mode === 'single'}
                   title='Single Scanner'
                   subtitle='XPOD_S'
-                  onClick={() =>
-                    patchField(
-                      'mode',
-                      form.mode === 'single' ? 'none' : 'single'
-                    )
-                  }
+                  onClick={() => patchField('mode', 'single')}
                 />
                 <ModeCard
                   active={form.mode === 'double'}
                   title='Double Scanner'
                   subtitle='XPOD_SS'
-                  onClick={() =>
-                    patchField(
-                      'mode',
-                      form.mode === 'double' ? 'none' : 'double'
-                    )
-                  }
+                  onClick={() => patchField('mode', 'double')}
                 />
               </div>
             </section>
