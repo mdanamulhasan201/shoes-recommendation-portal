@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { fetchShoeDetails } from '@/api/shoeDetailsApi'
 import { fetchGetCardQuantity, postAddToCard } from '@/api/referenceCustomerCardApi'
+import {
+  dispatchKioskTryonChanged,
+  postAddToCardTryon
+} from '@/api/referenceShoeTryonApi'
 import { fetchScannerFileById } from '@/api/scannerApi'
 import {
   csvDataToScanFields,
@@ -71,6 +75,8 @@ export function ShoeDetailPage ({
   const [cartCount, setCartCount] = useState(0)
   const [addToCartSubmitting, setAddToCartSubmitting] = useState(false)
   const [addToCartError, setAddToCartError] = useState<string | null>(null)
+  const [addToFittingSubmitting, setAddToFittingSubmitting] = useState(false)
+  const [addToFittingError, setAddToFittingError] = useState<string | null>(null)
   const [galleryIdx, setGalleryIdx] = useState(0)
   const [selectedColorwayId, setSelectedColorwayId] = useState<string | null>(null)
   const [lightboxOpen, setLightboxOpen] = useState(false)
@@ -688,6 +694,106 @@ export function ShoeDetailPage ({
     }
   }, [detail, currentImage, selectedSizeId, selectedColorwayId, syncCartBadgeCount])
 
+  const addToFitting = useCallback(async () => {
+    if (!detail) return
+
+    const sizeRow = (detail.reference_shoe_sizes ?? []).find(
+      r => r.id && r.id === selectedSizeId
+    )
+    if (!sizeRow?.id) {
+      setAddToFittingError('Bitte eine Größe wählen.')
+      return
+    }
+
+    const colorwaysList = (detail.reference_shoe_colors ?? []).filter(c => c?.id)
+    const selectedColor = colorwaysList.find(c => c.id === selectedColorwayId)
+    if (colorwaysList.length > 0 && !selectedColor?.id) {
+      setAddToFittingError('Bitte eine Farbe wählen.')
+      return
+    }
+
+    const customerId = resolveCustomerId()
+    if (!customerId) {
+      setAddToFittingError(
+        'Kein Kundenprofil — bitte den Kiosk-Flow vom Start durchlaufen.'
+      )
+      return
+    }
+
+    const priceRaw = Number(
+      String(detail.prise ?? '')
+        .trim()
+        .replace(',', '.')
+    )
+    const sizeValue =
+      sizeRow.value !== null && sizeRow.value !== undefined
+        ? String(sizeRow.value).trim()
+        : ''
+
+    setAddToFittingError(null)
+    setAddToFittingSubmitting(true)
+    try {
+      await postAddToCardTryon(customerId, {
+        reference_shoe_id: detail.id,
+        reference_shoe_size_id: sizeRow.id,
+        ...(sizeValue ? { size_value: sizeValue } : {}),
+        ...(sizeRow.table_name?.trim()
+          ? { table_name: sizeRow.table_name.trim() }
+          : {}),
+        ...(typeof sizeRow.insoleMinMm === 'number'
+          ? { insoleMinMm: sizeRow.insoleMinMm }
+          : {}),
+        ...(typeof sizeRow.insoleMaxMm === 'number'
+          ? { insoleMaxMm: sizeRow.insoleMaxMm }
+          : {}),
+        ...(selectedColor?.name?.trim()
+          ? { color_name: selectedColor.name.trim() }
+          : {}),
+        ...(selectedColor?.code?.trim()
+          ? { color_code: selectedColor.code.trim() }
+          : {}),
+        ...(selectedColor?.id
+          ? { reference_shoe_color_id: selectedColor.id }
+          : {}),
+        quantity: 1,
+        ...(Number.isFinite(priceRaw) ? { price: priceRaw } : {}),
+        try_on_type: 'admin_stock',
+        left_foot_percentage: Math.round(leftP),
+        right_foot_percentage: Math.round(rightP),
+        ...(fileId.trim() ? { scan_id: fileId.trim() } : {}),
+        note: 'Kiosk try-on'
+      })
+
+      dispatchKioskTryonChanged()
+
+      const displayName = (detail.name ?? detail.sku ?? 'Modell').trim()
+      const euLabel = formatEuSizeLabel(sizeRow.value)
+      const colorLabel = selectedColor?.name?.trim() || null
+      toast.success('Zur Anprobe hinzugefügt', {
+        description: [displayName, euLabel, colorLabel].filter(Boolean).join(' · '),
+        id: 'kiosk-tryon-add',
+        duration: 3200
+      })
+    } catch (e) {
+      const msg =
+        e instanceof Error
+          ? e.message
+          : 'Anprobe konnte nicht aktualisiert werden.'
+      setAddToFittingError(msg)
+      toast.error(msg, { id: 'kiosk-tryon-add-err', duration: 4500 })
+    } finally {
+      setAddToFittingSubmitting(false)
+    }
+  }, [
+    detail,
+    selectedSizeId,
+    selectedColorwayId,
+    resolveCustomerId,
+    leftP,
+    rightP,
+    fileId
+  ])
+
   if (loading) {
     if (variant === 'drawer') {
       return (
@@ -820,6 +926,9 @@ export function ShoeDetailPage ({
             addToCartSubmitting={addToCartSubmitting}
             addToCartError={addToCartError}
             onAddToCart={addToCart}
+            addToFittingSubmitting={addToFittingSubmitting}
+            addToFittingError={addToFittingError}
+            onAddToFitting={addToFitting}
             onBackToSelection={pushRecommendations}
           />
         </div>

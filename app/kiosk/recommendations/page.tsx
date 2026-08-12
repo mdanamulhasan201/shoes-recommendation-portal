@@ -20,7 +20,16 @@ import { apiUrl } from '@/api/apiConfig'
 import { fetchScannerFileById } from '@/api/scannerApi'
 import { RecommendationsProducts } from '@/components/recommendations/recommendations-products'
 import { KioskControlStrip } from '@/components/recommendations/terminal/KioskControlStrip'
-import { KioskFootProfileDrawer } from '@/components/recommendations/terminal/KioskFootProfileDrawer'
+import {
+  EMPTY_CATALOGUE_FILTERS,
+  appendCatalogueFiltersToParams,
+  catalogueFiltersActiveCount,
+  type CatalogueFiltersState
+} from '@/components/recommendations/terminal/catalogueFilters'
+import {
+  KioskFootProfileDrawer,
+  type FootProfileDrawerTab
+} from '@/components/recommendations/terminal/KioskFootProfileDrawer'
 import { KioskRecommendationBar } from '@/components/recommendations/terminal/KioskRecommendationBar'
 import { KioskShoeDetailDrawer } from '@/components/recommendations/terminal/KioskShoeDetailDrawer'
 import { KioskTerminalHeader } from '@/components/recommendations/terminal/KioskTerminalHeader'
@@ -220,7 +229,18 @@ export default function KioskRecommendationsPage () {
   const [entered, setEntered] = useState(false)
   const [sidebarEditable, setSidebarEditable] = useState(false)
   const [footProfileOpen, setFootProfileOpen] = useState(false)
+  const [footProfileTab, setFootProfileTab] =
+    useState<FootProfileDrawerTab>('profile')
+  const [catalogueFilters, setCatalogueFilters] = useState<CatalogueFiltersState>(
+    EMPTY_CATALOGUE_FILTERS
+  )
   const [detailCard, setDetailCard] = useState<ShoeCard | null>(null)
+  const [detailFileId, setDetailFileId] = useState<string | null>(null)
+
+  const openFootProfile = (tab: FootProfileDrawerTab = 'profile') => {
+    setFootProfileTab(tab)
+    setFootProfileOpen(true)
+  }
 
   const [cardsLoading, setCardsLoading] = useState(false)
   const [matchUpdating, setMatchUpdating] = useState(false)
@@ -366,9 +386,14 @@ export default function KioskRecommendationsPage () {
     [answerPath]
   )
 
+  const catalogueFiltersKey = useMemo(
+    () => JSON.stringify(catalogueFilters),
+    [catalogueFilters]
+  )
+
   const matchingBaseParams = useMemo(() => {
     if (!scannerId) return null
-    return buildMatchingBaseParams({
+    const params = buildMatchingBaseParams({
       scannerId,
       scan,
       category,
@@ -379,17 +404,19 @@ export default function KioskRecommendationsPage () {
       ballRegulatorOffsetMm,
       leftPanel
     })
+    appendCatalogueFiltersToParams(params, catalogueFilters)
+    return params
   }, [
     scannerId,
     scan,
     category,
     matchFootOnly,
     answerPath,
-    answerPathKey,
     questionCategoryId,
     minFootMatchPercent,
     ballRegulatorOffsetMm,
-    leftPanel
+    leftPanel,
+    catalogueFilters
   ])
 
   const resetList = useCallback(() => {
@@ -536,6 +563,7 @@ export default function KioskRecommendationsPage () {
         ballRegulatorOffsetMm: 0,
         leftPanel: null
       })
+      appendCatalogueFiltersToParams(reloadParams, catalogueFilters)
 
       resetList()
       setCardsLoading(true)
@@ -567,7 +595,8 @@ export default function KioskRecommendationsPage () {
     answerPath,
     questionCategoryId,
     relaxMinFootMatch,
-    fetchMatchingBatch
+    fetchMatchingBatch,
+    catalogueFilters
   ])
 
   const loadMore = useCallback(async () => {
@@ -617,7 +646,15 @@ export default function KioskRecommendationsPage () {
       resetList()
       void loadInitial(true)
     }
-  }, [scannerId, category, matchFootOnly, answerPathKey, relaxMinFootMatch, ballRegulatorOffsetMm])
+  }, [
+    scannerId,
+    category,
+    matchFootOnly,
+    answerPathKey,
+    relaxMinFootMatch,
+    ballRegulatorOffsetMm,
+    catalogueFiltersKey
+  ])
   /* eslint-enable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 
   /* ---------------------------------------------------------------------
@@ -679,6 +716,23 @@ export default function KioskRecommendationsPage () {
     return leftLength
   }, [leftBall, leftLength, rightBall, rightLength, ballRegulatorOffsetMm])
 
+  const fallbackFilterSizes = useMemo(() => {
+    const seen = new Set<string>()
+    const out: { system: string | null; value: string }[] = []
+    for (const card of cards) {
+      for (const match of [card.leftMatch, card.rightMatch]) {
+        const rs = match?.recommended_size
+        const v = rs?.value
+        if (v === null || v === undefined) continue
+        const value = String(v).trim()
+        if (!value || seen.has(value)) continue
+        seen.add(value)
+        out.push({ system: rs?.system ?? 'EU', value })
+      }
+    }
+    return out.sort((a, b) => Number(a.value) - Number(b.value))
+  }, [cards])
+
   return (
     <section
       id='root'
@@ -717,8 +771,9 @@ export default function KioskRecommendationsPage () {
             total={totalMatches}
             category={category}
             customerName={customerName}
-            onOpenFootProfile={() => setFootProfileOpen(true)}
-            onOpenConsultation={() => setFootProfileOpen(true)}
+            onOpenFootProfile={() => openFootProfile('profile')}
+            onOpenConsultation={() => openFootProfile('filters')}
+            filterActiveCount={catalogueFiltersActiveCount(catalogueFilters)}
           />
 
           <KioskControlStrip
@@ -740,9 +795,10 @@ export default function KioskRecommendationsPage () {
             hasMore={hasMore}
             onLoadMore={() => void loadMore()}
             onRelax={() => onRelaxMinFootMatchChange(true)}
-            onOpenDetail={card => {
+            onOpenDetail={(card, options) => {
               setFootProfileOpen(false)
               setDetailCard(card)
+              setDetailFileId(options?.fileId?.trim() || null)
             }}
           />
         </div>
@@ -751,13 +807,20 @@ export default function KioskRecommendationsPage () {
       <KioskShoeDetailDrawer
         open={Boolean(detailCard)}
         card={detailCard}
-        scannerId={scannerId}
-        onClose={() => setDetailCard(null)}
+        scannerId={detailFileId || scannerId}
+        onClose={() => {
+          setDetailCard(null)
+          setDetailFileId(null)
+        }}
       />
 
       <KioskFootProfileDrawer
         open={footProfileOpen}
         onClose={() => setFootProfileOpen(false)}
+        initialTab={footProfileTab}
+        catalogueFilters={catalogueFilters}
+        onApplyCatalogueFilters={setCatalogueFilters}
+        fallbackFilterSizes={fallbackFilterSizes}
         customerName={customerName}
         scannerId={scannerId}
         matchFootOnly={matchFootOnly}

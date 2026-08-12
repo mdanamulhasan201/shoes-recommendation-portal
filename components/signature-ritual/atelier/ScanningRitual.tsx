@@ -5,7 +5,10 @@ import { syncKioskProfileForScantoolShell } from "@/components/signature-ritual/
 import {
   useScantoolFootScan,
   useScantoolSaveAfterScan,
+  useScantoolEnsureReady,
 } from "@/components/scantool/useScantoolScanDriver";
+import { UploadProgressOverlay } from "@/components/scantool/UploadProgressOverlay";
+import { useScannerHardwareMode } from "@/components/scantool/useScannerHardwareMode";
 
 type Phase =
   | "left-prompt"
@@ -14,6 +17,9 @@ type Phase =
   | "right-prompt"
   | "right-scan"
   | "right-done"
+  | "both-prompt"
+  | "both-scan"
+  | "both-done"
   | "final";
 
 /** Scan screen palette — warm gold / ivory, tuned for kiosk legibility */
@@ -43,13 +49,34 @@ export function ScanningRitual({
   onBack?: () => void;
 }) {
   const { order } = useBespokeOrder();
-  const [phase, setPhase] = useState<Phase>("left-prompt");
+  const {
+    mode: hardwareMode,
+    loading: modeLoading,
+    error: modeLoadError,
+  } = useScannerHardwareMode();
+  const isDoubleMode = hardwareMode === "double";
+  const {
+    error: scannerReadyError,
+  } = useScantoolEnsureReady();
+
+  const [phase, setPhase] = useState<Phase | null>(null);
   const [scannerError, setScannerError] = useState<string | null>(null);
-  const { saveScan, isSaving } = useScantoolSaveAfterScan();
+  const { saveScan, isSaving, uploadProgress } = useScantoolSaveAfterScan();
 
   useEffect(() => {
     syncKioskProfileForScantoolShell(order);
   }, [order]);
+
+  // Show scan UI as soon as scanner type is known — never block on Rocket warm-up.
+  useEffect(() => {
+    if (modeLoading || !hardwareMode || phase !== null) return;
+    setPhase(hardwareMode === "double" ? "both-prompt" : "left-prompt");
+  }, [modeLoading, hardwareMode, phase]);
+
+  useEffect(() => {
+    if (modeLoadError) setScannerError(modeLoadError);
+    else if (scannerReadyError) setScannerError(scannerReadyError);
+  }, [modeLoadError, scannerReadyError]);
 
   const reportScanError = useCallback((message: string | null) => {
     setScannerError(message);
@@ -57,15 +84,23 @@ export function ScanningRitual({
 
   const onFootScanFinished = useCallback((ok: boolean) => {
     setPhase((prev) => {
+      if (!prev) return prev;
       if (prev === "left-scan") return ok ? "left-done" : "left-prompt";
       if (prev === "right-scan") return ok ? "right-done" : "right-prompt";
+      if (prev === "both-scan") return ok ? "both-done" : "both-prompt";
       return prev;
     });
   }, []);
 
   useScantoolFootScan({
     scanningPhase:
-      phase === "left-scan" ? "left" : phase === "right-scan" ? "right" : null,
+      phase === "left-scan"
+        ? "left"
+        : phase === "right-scan"
+          ? "right"
+          : phase === "both-scan"
+            ? "both"
+            : null,
     reportError: reportScanError,
     onFinished: onFootScanFinished,
   });
@@ -82,13 +117,22 @@ export function ScanningRitual({
     setPhase("final");
   }, [saveScan]);
 
-  const copy: Record<
-    Phase,
-    { eyebrow: string; title: string; cta: string; onTap: () => void }
-  > = useMemo(
-    () => ({
+  const copy = useMemo(() => {
+    const single: Record<
+      Extract<
+        Phase,
+        | "left-prompt"
+        | "left-scan"
+        | "left-done"
+        | "right-prompt"
+        | "right-scan"
+        | "right-done"
+        | "final"
+      >,
+      { eyebrow: string; title: string; cta: string; onTap: () => void }
+    > = {
       "left-prompt": {
-        eyebrow: "Schritt 1 — Linker Fuß",
+        eyebrow: "Schritt 1 — Linker Fuß · Single Scanner",
         title: "Platzieren Sie Ihren linken Fuß",
         cta: "Scan starten",
         onTap: () => setPhase("left-scan"),
@@ -106,7 +150,7 @@ export function ScanningRitual({
         onTap: () => setPhase("right-prompt"),
       },
       "right-prompt": {
-        eyebrow: "Schritt 2 — Rechter Fuß",
+        eyebrow: "Schritt 2 — Rechter Fuß · Single Scanner",
         title: "Platzieren Sie Ihren rechten Fuß",
         cta: "Scan starten",
         onTap: () => setPhase("right-scan"),
@@ -131,36 +175,111 @@ export function ScanningRitual({
         cta: "Modell auswählen",
         onTap: onComplete,
       },
-    }),
-    [goToFinalAfterSave, onComplete],
-  );
+    };
 
-  const current = copy[phase];
+    const dual: Record<
+      Extract<Phase, "both-prompt" | "both-scan" | "both-done" | "final">,
+      { eyebrow: string; title: string; cta: string; onTap: () => void }
+    > = {
+      "both-prompt": {
+        eyebrow: "Double Scanner · Beide Füße",
+        title: "Platzieren Sie beide Füße",
+        cta: "Beide Füße scannen",
+        onTap: () => setPhase("both-scan"),
+      },
+      "both-scan": {
+        eyebrow: "Double Scanner · Beide Füße",
+        title: "Beide Formen werden erfasst",
+        cta: "",
+        onTap: () => {},
+      },
+      "both-done": {
+        eyebrow: "Abgeschlossen",
+        title: "Beide Formen, erfasst.",
+        cta: "Weiter",
+        onTap: () => {
+          void goToFinalAfterSave();
+        },
+      },
+      final: {
+        eyebrow: "Präzision",
+        title: "Ihre Form. Präzise verstanden.",
+        cta: "Modell auswählen",
+        onTap: onComplete,
+      },
+    };
 
-  const ctaLabel =
-    phase === "right-done" && isSaving
-      ? "Wird gespeichert …"
-      : current.cta;
+    return isDoubleMode ? dual : single;
+  }, [goToFinalAfterSave, onComplete, isDoubleMode]);
 
-  const leftState: FootState = phase.startsWith("left")
-    ? phase === "left-prompt"
+  if (modeLoading || !phase) {
+    return (
+      <motion.section
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center"
+      >
+        {modeLoading ? (
+          <p
+            className="text-[0.65rem] uppercase tracking-[0.4em]"
+            style={{ color: SCAN.hint }}
+          >
+            Scanner-Einstellungen werden geladen…
+          </p>
+        ) : (
+          <p className="max-w-md text-[0.75rem] leading-relaxed tracking-[0.06em] text-red-300/95">
+            {scannerReadyError ||
+              modeLoadError ||
+              "Bitte in den Einstellungen feetf1rst Single Scanner oder Double Scanner wählen."}
+          </p>
+        )}
+      </motion.section>
+    );
+  }
+
+  const current =
+    (copy as Record<string, { eyebrow: string; title: string; cta: string; onTap: () => void }>)[
+      phase
+    ] ?? {
+      eyebrow: "",
+      title: "",
+      cta: "",
+      onTap: () => {},
+    };
+
+  const ctaLabel = current.cta;
+  const showUploadOverlay = isSaving && uploadProgress != null;
+  const canSaveFromPhase = phase === "right-done" || phase === "both-done";
+
+  const leftState: FootState = isDoubleMode
+    ? phase === "both-prompt"
       ? "prompt"
-      : phase === "left-scan"
+      : phase === "both-scan"
         ? "scanning"
-        : "complete"
-    : phase === "final" || phase.startsWith("right")
-      ? "complete"
-      : "idle";
+        : phase === "both-done" || phase === "final"
+          ? "complete"
+          : "idle"
+    : phase.startsWith("left")
+      ? phase === "left-prompt"
+        ? "prompt"
+        : phase === "left-scan"
+          ? "scanning"
+          : "complete"
+      : phase === "final" || phase.startsWith("right")
+        ? "complete"
+        : "idle";
 
-  const rightState: FootState = phase.startsWith("right")
-    ? phase === "right-prompt"
-      ? "prompt"
-      : phase === "right-scan"
-        ? "scanning"
-        : "complete"
-    : phase === "final"
-      ? "complete"
-      : "idle";
+  const rightState: FootState = isDoubleMode
+    ? leftState
+    : phase.startsWith("right")
+      ? phase === "right-prompt"
+        ? "prompt"
+        : phase === "right-scan"
+          ? "scanning"
+          : "complete"
+      : phase === "final"
+        ? "complete"
+        : "idle";
 
   return (
     <motion.section
@@ -170,7 +289,13 @@ export function ScanningRitual({
       transition={{ duration: 1.5 }}
       className="absolute inset-0 flex flex-col items-center justify-center"
     >
-      {onBack ? (
+      <UploadProgressOverlay
+        visible={showUploadOverlay}
+        percent={uploadProgress ?? 0}
+        theme="ritual"
+      />
+
+      {onBack && !showUploadOverlay ? (
         <motion.div
           initial={{ opacity: 0, x: -12 }}
           animate={{ opacity: 1, x: 0 }}
@@ -187,7 +312,6 @@ export function ScanningRitual({
         </motion.div>
       ) : null}
 
-      {/* Top instruction */}
       <div className="absolute top-20 text-center px-8">
         <AnimatePresence mode="wait">
           <motion.div
@@ -210,21 +334,20 @@ export function ScanningRitual({
         </AnimatePresence>
       </div>
 
-      {/* Foot displays */}
       <div className="flex items-center justify-center gap-16 md:gap-32">
         <FootScan side="left" state={leftState} />
         <FootScan side="right" state={rightState} />
       </div>
 
-      {/* Bottom CTA */}
       <div className="absolute bottom-20 flex flex-col items-center gap-4 text-center">
         {scannerError ? (
           <p className="max-w-sm px-4 text-center text-[0.7rem] font-sans leading-relaxed tracking-[0.08em] text-red-300/95">
             {scannerError}
           </p>
         ) : null}
+
         <AnimatePresence mode="wait">
-          {current.cta && (
+          {current.cta && !showUploadOverlay && (
             <motion.button
               key={phase}
               type="button"
@@ -232,7 +355,7 @@ export function ScanningRitual({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.8 }}
-              disabled={phase === "right-done" && isSaving}
+              disabled={canSaveFromPhase && isSaving}
               onClick={current.onTap}
               className="group tracking-atelier transition-colors hover:opacity-95 disabled:pointer-events-none disabled:cursor-wait disabled:opacity-45"
               style={{ color: SCAN.cta }}
@@ -245,7 +368,7 @@ export function ScanningRitual({
               </span>
             </motion.button>
           )}
-          {!current.cta && (
+          {!current.cta && !isSaving && (
             <motion.p
               key={`${phase}-hint`}
               initial={{ opacity: 0 }}
@@ -259,7 +382,6 @@ export function ScanningRitual({
           )}
         </AnimatePresence>
       </div>
-
     </motion.section>
   );
 }
@@ -276,7 +398,6 @@ function FootScan({ side, state }: { side: "left" | "right"; state: FootState })
         transition={{ duration: 1.5 }}
         className="relative h-72 w-40 md:h-[26rem] md:w-60"
       >
-        {/* Glowing outline guide */}
         {state === "prompt" && (
           <motion.div
             animate={{ opacity: [0.65, 1, 0.65] }}
@@ -289,7 +410,6 @@ function FootScan({ side, state }: { side: "left" | "right"; state: FootState })
           />
         )}
 
-        {/* Ambient halo for scanning / complete */}
         {(state === "scanning" || state === "complete") && (
           <div
             className="pointer-events-none absolute -inset-6 -z-10"
@@ -299,7 +419,6 @@ function FootScan({ side, state }: { side: "left" | "right"; state: FootState })
           />
         )}
 
-        {/* Foot SVG */}
         <svg viewBox="0 0 200 400" className={`relative h-full w-full ${flip}`} fill="none">
           <defs>
             <linearGradient id={`grad-${side}`} x1="0" y1="0" x2="0" y2="1">
@@ -337,7 +456,6 @@ function FootScan({ side, state }: { side: "left" | "right"; state: FootState })
             ))}
         </svg>
 
-        {/* Light sweep during scan */}
         {state === "scanning" && (
           <motion.div
             initial={{ y: "-10%", opacity: 0 }}

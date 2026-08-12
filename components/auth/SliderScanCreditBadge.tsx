@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { fetchScanCreditRightNow } from '@/api/scanCreditApi'
-import { BuyCreditsPasswordModal } from './BuyCreditsPasswordModal'
+import { clearProfileAccess } from '@/app/lib/profileAccess'
+import { ProfilePasswordModal } from './ProfilePasswordModal'
 import { useScannerAuth } from './ScannerAuthProvider'
 
-/** Scan-credit pill — top-right on home slider (`components/slider.tsx`). */
+const CREDITS_HREF = '/profile?tab=credits'
+
+/** Scan-credit pill — top-right on home slider. Always asks PIN → Credits tab. */
 export function SliderScanCreditBadge () {
   const { session, status } = useScannerAuth()
   const [credit, setCredit] = useState<number | null>(null)
@@ -37,10 +40,11 @@ export function SliderScanCreditBadge () {
     <>
       <button
         type='button'
-        aria-label={`Scan-Guthaben: ${credit}. Credits kaufen`}
+        aria-label={`Scan-Guthaben: ${credit}. Credits öffnen`}
         onPointerDown={e => e.stopPropagation()}
         onClick={e => {
           e.stopPropagation()
+          clearProfileAccess()
           setModalOpen(true)
         }}
         className='pointer-events-auto absolute top-6 right-6 z-[80] flex cursor-pointer items-center gap-2.5 rounded-full border border-white/25 bg-zinc-950/80 px-3.5 py-2 shadow-[0_8px_28px_rgba(0,0,0,0.45)] backdrop-blur-md transition hover:border-emerald-400/40 hover:bg-zinc-950/95 active:scale-[0.98]'
@@ -71,9 +75,12 @@ export function SliderScanCreditBadge () {
         </div>
       </button>
 
-      <BuyCreditsPasswordModal
+      <ProfilePasswordModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
+        redirectTo={CREDITS_HREF}
+        confirmTitle='Credits öffnen?'
+        confirmMessage='Möchten Sie Credits kaufen?'
       />
     </>
   )

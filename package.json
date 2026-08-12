@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build",
+    "build_vps": "npm install && rm -rf .next && rm -rf node_modules/.cache && next build && pm2 restart all",
     "start": "next start",
     "lint": "eslint"
   },

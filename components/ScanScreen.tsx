@@ -4,8 +4,11 @@ import { useState, useEffect, useCallback } from 'react'
 import FootOutline from './FootOutline'
 import {
   useScantoolFootScan,
-  useScantoolSaveAfterScan
+  useScantoolSaveAfterScan,
+  useScantoolEnsureReady
 } from './scantool/useScantoolScanDriver'
+import { UploadProgressOverlay } from './scantool/UploadProgressOverlay'
+import { useScannerHardwareMode } from './scantool/useScannerHardwareMode'
 
 interface ScanScreenProps {
   onComplete: () => void
@@ -21,6 +24,9 @@ type Step =
   | 'setup-right'
   | 'scan-right'
   | 'done-right'
+  | 'setup-both'
+  | 'scan-both'
+  | 'done-both'
   | 'finished'
 
 const PAUSE_AFTER_DONE = 1200
@@ -30,32 +36,65 @@ const ScanScreen = ({
   manualBetweenFeet = false,
   className = ''
 }: ScanScreenProps) => {
-  const [step, setStep] = useState<Step>('setup-left')
+  const {
+    mode: hardwareMode,
+    loading: modeLoading,
+    error: modeError
+  } = useScannerHardwareMode()
+  const isDoubleMode = hardwareMode === 'double'
+  const {
+    error: scannerReadyError
+  } = useScantoolEnsureReady()
+
+  const [step, setStep] = useState<Step | null>(null)
   const [visible, setVisible] = useState(false)
   const [transitioning, setTransitioning] = useState(false)
   const [scannerError, setScannerError] = useState<string | null>(null)
-  const { saveScan, isSaving } = useScantoolSaveAfterScan()
+  const { saveScan, isSaving, uploadProgress } = useScantoolSaveAfterScan()
+  const showUploadOverlay = isSaving && uploadProgress != null
+
+  // Show scan UI as soon as scanner type is known — never block on Rocket warm-up.
+  useEffect(() => {
+    if (modeLoading || !hardwareMode || step !== null) return
+    setStep(hardwareMode === 'double' ? 'setup-both' : 'setup-left')
+  }, [modeLoading, hardwareMode, step])
+
+  useEffect(() => {
+    if (modeError) setScannerError(modeError)
+    else if (scannerReadyError) setScannerError(scannerReadyError)
+  }, [modeError, scannerReadyError])
 
   const reportScanError = useCallback((message: string | null) => {
     setScannerError(message)
   }, [])
 
   const onFootScanFinished = useCallback((ok: boolean) => {
-    setStep((prev) => {
+    setStep(prev => {
+      if (!prev) return prev
       if (!ok) {
         if (prev === 'scan-left') return 'setup-left'
         if (prev === 'scan-right') return 'setup-right'
+        if (prev === 'scan-both') return 'setup-both'
         return prev
       }
       if (prev === 'scan-left') return 'done-left'
       if (prev === 'scan-right') return 'done-right'
+      if (prev === 'scan-both') return 'done-both'
       return prev
     })
   }, [])
 
+  const scanningPhase =
+    step === 'scan-left'
+      ? 'left'
+      : step === 'scan-right'
+        ? 'right'
+        : step === 'scan-both'
+          ? 'both'
+          : null
+
   const { progress: footScanProgress } = useScantoolFootScan({
-    scanningPhase:
-      step === 'scan-left' ? 'left' : step === 'scan-right' ? 'right' : null,
+    scanningPhase,
     reportError: reportScanError,
     onFinished: onFootScanFinished
   })
@@ -66,6 +105,7 @@ const ScanScreen = ({
 
   // After done, transition to next (or wait for WEITER if manualBetweenFeet)
   useEffect(() => {
+    if (!step) return
     if (step === 'done-left') {
       if (manualBetweenFeet) return
       const t = setTimeout(() => {
@@ -77,12 +117,34 @@ const ScanScreen = ({
       }, PAUSE_AFTER_DONE)
       return () => clearTimeout(t)
     }
-    if (step === 'done-right') {
+    if (step === 'done-right' || step === 'done-both') {
       if (manualBetweenFeet) return
-      const t = setTimeout(() => setStep('finished'), PAUSE_AFTER_DONE)
-      return () => clearTimeout(t)
+      // Auto-advance mode: still run #save inside Scantool before finishing.
+      let cancelled = false
+      const t = setTimeout(() => {
+        void (async () => {
+          const inShell =
+            typeof window !== 'undefined' &&
+            window.localStorage.getItem('startedFromScantool') === 'true'
+          if (inShell) {
+            const ok = await saveScan()
+            if (cancelled) return
+            if (!ok) {
+              setScannerError(
+                'Speichern/Hochladen fehlgeschlagen. Bitte erneut versuchen.'
+              )
+              return
+            }
+          }
+          if (!cancelled) setStep('finished')
+        })()
+      }, PAUSE_AFTER_DONE)
+      return () => {
+        cancelled = true
+        clearTimeout(t)
+      }
     }
-  }, [step, manualBetweenFeet])
+  }, [step, manualBetweenFeet, saveScan])
 
   // Final out
   useEffect(() => {
@@ -94,15 +156,13 @@ const ScanScreen = ({
   const handleStartScan = useCallback(() => {
     if (step === 'setup-left') setStep('scan-left')
     if (step === 'setup-right') setStep('scan-right')
+    if (step === 'setup-both') setStep('scan-both')
   }, [step])
 
   const handleRescan = useCallback(() => {
-    if (step === 'done-left') {
-      setStep('setup-left')
-    }
-    if (step === 'done-right') {
-      setStep('setup-right')
-    }
+    if (step === 'done-left') setStep('setup-left')
+    if (step === 'done-right') setStep('setup-right')
+    if (step === 'done-both') setStep('setup-both')
   }, [step])
 
   const goToRightFoot = useCallback(() => {
@@ -115,7 +175,8 @@ const ScanScreen = ({
   }, [manualBetweenFeet, step])
 
   const finishToNext = useCallback(async () => {
-    if (!manualBetweenFeet || step !== 'done-right') return
+    if (!manualBetweenFeet) return
+    if (step !== 'done-right' && step !== 'done-both') return
 
     setScannerError(null)
     const ok = await saveScan()
@@ -129,33 +190,68 @@ const ScanScreen = ({
     setStep('finished')
   }, [manualBetweenFeet, step, saveScan])
 
-  const isSetup = step === 'setup-left' || step === 'setup-right'
-  const isScanning = step === 'scan-left' || step === 'scan-right'
-  const isDone = step === 'done-left' || step === 'done-right'
-  const currentSide: 'left' | 'right' = step.includes('left') ? 'left' : 'right'
+  if (modeLoading || !step) {
+    return (
+      <div
+        className={`fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#050505] px-6 text-white ${className}`.trim()}
+      >
+        {modeLoading ? (
+          <p
+            className='kiosk-mono tracking-[0.28em]'
+            style={{ fontSize: 'clamp(0.7rem, 2.5vw, 0.95rem)', opacity: 0.55 }}
+          >
+            SCANNER-EINSTELLUNGEN LADEN…
+          </p>
+        ) : (
+          <p
+            className='kiosk-mono max-w-md text-center tracking-[0.12em] text-red-300'
+            style={{ fontSize: 'clamp(0.7rem, 2.5vw, 0.95rem)', lineHeight: 1.45 }}
+          >
+            {scannerReadyError ||
+              modeError ||
+              'Bitte in den Einstellungen feetf1rst Single Scanner oder Double Scanner wählen.'}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  const isSetup =
+    step === 'setup-left' || step === 'setup-right' || step === 'setup-both'
+  const isScanning =
+    step === 'scan-left' || step === 'scan-right' || step === 'scan-both'
+  const isDone =
+    step === 'done-left' || step === 'done-right' || step === 'done-both'
+  const isBothStep = step.includes('both')
+  const currentSide: 'left' | 'right' = step.includes('right') ? 'right' : 'left'
   const isFinished = step === 'finished'
-  const outlineProgress = isScanning
-    ? footScanProgress
-    : isDone
-    ? 1
-    : 0
+  const outlineProgress = isScanning ? footScanProgress : isDone ? 1 : 0
 
-  const headline = isSetup
-    ? currentSide === 'left'
-      ? 'Linken Fuß positionieren'
-      : 'Rechten Fuß positionieren'
-    : isScanning
-    ? currentSide === 'left'
-      ? 'Wir scannen deinen linken Fuß'
-      : 'Wir scannen deinen rechten Fuß'
-    : isDone
-    ? currentSide === 'left'
-      ? 'Linker Fuß erfasst'
-      : 'Rechter Fuß erfasst'
-    : 'Analyse abgeschlossen'
+  const headline = isBothStep
+    ? isSetup
+      ? 'Beide Füße positionieren'
+      : isScanning
+        ? 'Wir scannen beide Füße'
+        : 'Beide Füße erfasst'
+    : isSetup
+      ? currentSide === 'left'
+        ? 'Linken Fuß positionieren'
+        : 'Rechten Fuß positionieren'
+      : isScanning
+        ? currentSide === 'left'
+          ? 'Wir scannen deinen linken Fuß'
+          : 'Wir scannen deinen rechten Fuß'
+        : isDone
+          ? currentSide === 'left'
+            ? 'Linker Fuß erfasst'
+            : 'Rechter Fuß erfasst'
+          : 'Analyse abgeschlossen'
 
-  const buttonLabel =
-    currentSide === 'left' ? 'LINKEN FUSS SCANNEN' : 'RECHTEN FUSS SCANNEN'
+  const buttonLabel = isBothStep
+    ? 'BEIDE FÜSSE SCANNEN'
+    : currentSide === 'left'
+      ? 'LINKEN FUSS SCANNEN'
+      : 'RECHTEN FUSS SCANNEN'
 
   const safePad = {
     paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
@@ -175,7 +271,6 @@ const ScanScreen = ({
         ...safePad
       }}
     >
-      {/* Vignette */}
       <div
         className='pointer-events-none absolute inset-0 z-0'
         style={{
@@ -184,7 +279,6 @@ const ScanScreen = ({
         }}
       />
 
-      {/* Ambient glow */}
       <div
         className='pointer-events-none absolute inset-0 z-0'
         style={{
@@ -195,46 +289,76 @@ const ScanScreen = ({
         }}
       />
 
-      {/* Content wrapper with cross-fade — column uses full height, no overlap */}
+      <UploadProgressOverlay
+        visible={showUploadOverlay}
+        percent={uploadProgress ?? 0}
+        theme='kiosk'
+      />
+
       <div
         className='relative z-10 flex min-h-0 w-full flex-1 flex-col items-stretch'
         style={{
-          opacity: transitioning ? 0 : 1,
+          opacity: transitioning || showUploadOverlay ? 0 : 1,
           transform: transitioning ? 'scale(0.96)' : 'scale(1)',
+          pointerEvents: showUploadOverlay ? 'none' : undefined,
           transition: 'opacity 0.4s ease-out, transform 0.4s ease-out'
         }}
       >
-        {/* TOP — Step dots + headline (fixed footprint) */}
         <div className='flex w-full max-w-lg shrink-0 flex-col items-center gap-3 self-center px-3 pt-1'>
           <div className='flex gap-4'>
-            <div
-              className='h-2.5 w-2.5 rounded-full transition-all duration-500'
-              style={{
-                background: `hsl(var(--primary) / ${
-                  step.includes('left') || step === 'done-right' || isFinished
-                    ? 1
-                    : 0.3
-                })`,
-                boxShadow:
-                  step.includes('left') && !isDone
-                    ? `0 0 12px hsl(var(--primary) / 0.5)`
-                    : 'none'
-              }}
-            />
-            <div
-              className='h-2.5 w-2.5 rounded-full transition-all duration-500'
-              style={{
-                background: `hsl(var(--primary) / ${
-                  step.includes('right') || isFinished ? 1 : 0.2
-                })`,
-                boxShadow: step.includes('right')
-                  ? `0 0 12px hsl(var(--primary) / 0.5)`
-                  : 'none'
-              }}
-            />
+            {isDoubleMode ? (
+              <div
+                className='h-2.5 w-2.5 rounded-full transition-all duration-500'
+                style={{
+                  background: 'hsl(var(--primary))',
+                  boxShadow: `0 0 12px hsl(var(--primary) / 0.5)`
+                }}
+              />
+            ) : (
+              <>
+                <div
+                  className='h-2.5 w-2.5 rounded-full transition-all duration-500'
+                  style={{
+                    background: `hsl(var(--primary) / ${
+                      step.includes('left') ||
+                      step === 'done-right' ||
+                      isFinished
+                        ? 1
+                        : 0.3
+                    })`,
+                    boxShadow:
+                      step.includes('left') && !isDone
+                        ? `0 0 12px hsl(var(--primary) / 0.5)`
+                        : 'none'
+                  }}
+                />
+                <div
+                  className='h-2.5 w-2.5 rounded-full transition-all duration-500'
+                  style={{
+                    background: `hsl(var(--primary) / ${
+                      step.includes('right') || isFinished ? 1 : 0.2
+                    })`,
+                    boxShadow: step.includes('right')
+                      ? `0 0 12px hsl(var(--primary) / 0.5)`
+                      : 'none'
+                  }}
+                />
+              </>
+            )}
           </div>
+          <p
+            className='kiosk-mono tracking-[0.32em]'
+            style={{
+              fontSize: 'clamp(0.55rem, 2vw, 0.72rem)',
+              opacity: 0.45
+            }}
+          >
+            {isDoubleMode
+              ? 'FEETF1RST DOUBLE SCANNER'
+              : 'FEETF1RST SINGLE SCANNER'}
+          </p>
           <h2
-            className='kiosk-display text-inherit text-center tracking-[0.06em] leading-tight mb-6'
+            className='kiosk-display text-inherit mb-6 text-center leading-tight tracking-[0.06em]'
             style={{
               fontSize: 'clamp(1.15rem, 4.2vw, 2.6rem)',
               fontWeight: 700,
@@ -246,23 +370,36 @@ const ScanScreen = ({
           </h2>
         </div>
 
-        {/* CENTER — Foot (shrinks inside remaining space) */}
         <div
           className='relative flex min-h-0 w-full max-w-[400px] flex-1 flex-col items-center justify-center self-center px-2 py-2'
           style={{
             maxHeight: 'min(52dvh, calc(100dvh - 15.5rem))'
           }}
         >
-          <div className='flex max-h-full w-full min-h-0 flex-1 items-center justify-center'>
-            <FootOutline
-              side={currentSide}
-              progress={outlineProgress}
-              showLabel={false}
-            />
+          <div className='flex max-h-full w-full min-h-0 flex-1 items-center justify-center gap-6'>
+            {isBothStep ? (
+              <>
+                <FootOutline
+                  side='left'
+                  progress={outlineProgress}
+                  showLabel={false}
+                />
+                <FootOutline
+                  side='right'
+                  progress={outlineProgress}
+                  showLabel={false}
+                />
+              </>
+            ) : (
+              <FootOutline
+                side={currentSide}
+                progress={outlineProgress}
+                showLabel={false}
+              />
+            )}
           </div>
         </div>
 
-        {/* BOTTOM — Hint / done + actions (never overlays foot) */}
         <div className='flex w-full max-w-lg shrink-0 flex-col items-center gap-3 self-center px-3 pb-1'>
           {scannerError ? (
             <p
@@ -285,17 +422,19 @@ const ScanScreen = ({
                 opacity: isSetup
                   ? 0.5
                   : isScanning && outlineProgress < 0.85
-                  ? 0.45
-                  : 0,
+                    ? 0.45
+                    : 0,
                 transition: 'opacity 0.6s ease-out'
               }}
             >
               {isSetup
-                ? 'BITTE AUF DIE MARKIERUNG STELLEN'
+                ? isBothStep
+                  ? 'BITTE BEIDE FÜSSE AUF DIE MARKIERUNG STELLEN'
+                  : 'BITTE AUF DIE MARKIERUNG STELLEN'
                 : 'BITTE STILLHALTEN'}
             </p>
           ) : (
-            <div className='flex min-h-11 items-center gap-3 animate-fade-in'>
+            <div className='flex min-h-11 animate-fade-in items-center gap-3'>
               <div
                 className='flex h-5 w-5 shrink-0 items-center justify-center rounded-full'
                 style={{
@@ -402,7 +541,8 @@ const ScanScreen = ({
                   </button>
                 ) : null}
 
-                {manualBetweenFeet && step === 'done-right' ? (
+                {manualBetweenFeet &&
+                (step === 'done-right' || step === 'done-both') ? (
                   <button
                     type='button'
                     className='max-w-[95vw] shrink-0'

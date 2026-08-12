@@ -11,6 +11,7 @@ import {
 import { kioskFlowBackOrKiosk } from '../kiosk-flow-navigation'
 import {
   fetchLatestScreenerFile,
+  fetchScannerFileById,
   formatGermanTimestamp
 } from '@/api/scannerApi'
 
@@ -54,7 +55,11 @@ export default function KioskScanPage () {
       typeof window !== 'undefined' &&
       window.localStorage.getItem('startedFromScantool') === 'true'
     ) {
-      router.replace(`${pathname}#scannerExit`)
+      const base = window.location.pathname + window.location.search
+      if (window.location.hash === '#scannerExit') {
+        window.history.replaceState(null, '', base)
+      }
+      window.location.hash = '#scannerExit'
       // Brief grace period so the WebView2 SourceChanged event fires before
       // we navigate away. The actual Rocket-exit takes longer, but it runs
       // asynchronously inside the desktop process.
@@ -78,6 +83,14 @@ export default function KioskScanPage () {
     try {
       const flow = readKioskFlowState()
       const userId = flow.profile.id
+      const shellFileId = flow.scannerFile?.id
+      if (shellFileId !== undefined && shellFileId !== null) {
+        const full = await fetchScannerFileById(String(shellFileId))
+        if (full) {
+          writeKioskFlowState({ ...flow, scannerFile: full })
+          return
+        }
+      }
       if (userId !== undefined && userId !== null) {
         const latest = await fetchLatestScreenerFile(userId)
         if (latest) {

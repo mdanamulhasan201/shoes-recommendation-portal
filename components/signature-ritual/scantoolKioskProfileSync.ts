@@ -5,8 +5,8 @@ import { readKioskFlowState, writeKioskFlowState } from '@/app/kiosk/flow-state'
 
 /**
  * Mirrors `referenceCustomerId` + customer name into `kiosk-flow-v1` so
- * ScantoolKiosk (scanner-driver-kiosk) can resolve
- * `POST .../screener-file/{id}` on `#save`.
+ * shoes-recommendation-3d-scanner can resolve
+ * `POST /v3/reference-customer/customer-file/screener-file/{id}` on `#save`.
  */
 export function syncKioskProfileForScantoolShell (order: BespokeOrder): void {
   if (typeof window === 'undefined') return

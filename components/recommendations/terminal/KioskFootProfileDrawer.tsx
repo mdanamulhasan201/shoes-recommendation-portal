@@ -1,19 +1,41 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { RecommendationsSidebarProps } from '@/components/recommendations/recommendations-sidebar'
 import { RecommendationsSidebar } from '@/components/recommendations/recommendations-sidebar'
+import { KioskAlleFilterPanel } from '@/components/recommendations/terminal/KioskAlleFilterPanel'
+import {
+  catalogueFiltersActiveCount,
+  type CatalogueFiltersState
+} from '@/components/recommendations/terminal/catalogueFilters'
+
+export type FootProfileDrawerTab = 'profile' | 'filters'
 
 export type KioskFootProfileDrawerProps = RecommendationsSidebarProps & {
   open: boolean
   onClose: () => void
+  initialTab?: FootProfileDrawerTab
+  catalogueFilters: CatalogueFiltersState
+  onApplyCatalogueFilters: (next: CatalogueFiltersState) => void
+  fallbackFilterSizes?: { system: string | null; value: string }[]
 }
 
 export function KioskFootProfileDrawer ({
   open,
   onClose,
+  initialTab = 'profile',
+  catalogueFilters,
+  onApplyCatalogueFilters,
+  fallbackFilterSizes = [],
   ...sidebarProps
 }: KioskFootProfileDrawerProps) {
+  const [tab, setTab] = useState<FootProfileDrawerTab>(initialTab)
+  const filterCount = catalogueFiltersActiveCount(catalogueFilters)
+
+  useEffect(() => {
+    if (open) setTab(initialTab)
+  }, [open, initialTab])
+
   if (!open) return null
 
   return (
@@ -33,13 +55,13 @@ export function KioskFootProfileDrawer ({
         <div className='flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4'>
           <div>
             <p className='kiosk-mono text-[10px] tracking-[0.18em] text-emerald-300/70'>
-              FUSSPROFIL
+              SIDEBAR
             </p>
             <h3
               id='kiosk-foot-profile-title'
               className='text-lg font-bold text-white'
             >
-              Maße & Matching
+              {tab === 'profile' ? 'Maße & Matching' : 'Alle Filter'}
             </h3>
           </div>
           <button
@@ -59,10 +81,53 @@ export function KioskFootProfileDrawer ({
           </button>
         </div>
 
+        <div className='flex shrink-0 gap-1 border-b border-white/10 px-4 py-2'>
+          <button
+            type='button'
+            onClick={() => setTab('profile')}
+            className={[
+              'inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center rounded-xl text-sm font-semibold transition',
+              tab === 'profile'
+                ? 'bg-emerald-500/20 text-emerald-100'
+                : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+            ].join(' ')}
+          >
+            Fußprofil
+          </button>
+          <button
+            type='button'
+            onClick={() => setTab('filters')}
+            className={[
+              'inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl text-sm font-semibold transition',
+              tab === 'filters'
+                ? 'bg-emerald-500/20 text-emerald-100'
+                : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+            ].join(' ')}
+          >
+            Alle Filter
+            {filterCount > 0 ? (
+              <span className='inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[hsl(var(--primary))] px-1.5 text-[11px] font-bold text-white'>
+                {filterCount}
+              </span>
+            ) : null}
+          </button>
+        </div>
+
         <div className='min-h-0 flex-1 overflow-hidden p-3 sm:p-4'>
-          <div className='h-full [&_aside]:h-full [&_aside]:rounded-2xl'>
-            <RecommendationsSidebar {...sidebarProps} />
-          </div>
+          {tab === 'profile' ? (
+            <div className='h-full [&_aside]:h-full [&_aside]:rounded-2xl'>
+              <RecommendationsSidebar {...sidebarProps} />
+            </div>
+          ) : (
+            <KioskAlleFilterPanel
+              active={open && tab === 'filters'}
+              scannerId={sidebarProps.scannerId}
+              value={catalogueFilters}
+              onApply={onApplyCatalogueFilters}
+              onDone={onClose}
+              fallbackSizes={fallbackFilterSizes}
+            />
+          )}
         </div>
       </aside>
     </div>

@@ -4,33 +4,25 @@ import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { canOptimizeShoeImage } from '@/api/shoeImageSrc'
-
-export type StaticFittingItem = {
-  id: string
-  name: string
-  brand: string
-  size: string
-  colorLabel: string | null
-  image: string | null
-  status?: string | null
-}
+import type { TryonPopupItem } from '@/api/referenceShoeTryonApi'
 
 export type KioskFittingDockProps = {
-  items: StaticFittingItem[]
+  length: number
+  images: string[]
+  /** Full rows when expanded (from requests-popup-data). */
+  items?: TryonPopupItem[]
   expanded: boolean
   onToggleView: () => void
   onRequest: () => void
-  onRemove: (id: string) => void
-  onClearAll: () => void
 }
 
 export function KioskFittingDock ({
-  items,
+  length,
+  images,
+  items = [],
   expanded,
   onToggleView,
-  onRequest,
-  onRemove,
-  onClearAll
+  onRequest
 }: KioskFittingDockProps) {
   const [mounted, setMounted] = useState(false)
 
@@ -38,12 +30,22 @@ export function KioskFittingDock ({
     setMounted(true)
   }, [])
 
-  if (items.length === 0 || !mounted) return null
+  if (length <= 0 || !mounted) return null
 
-  const countLabel =
-    items.length === 1 ? '1 Modell' : `${items.length} Modelle`
-  const preview = items.slice(0, 3)
-  const extra = Math.max(0, items.length - preview.length)
+  const countLabel = length === 1 ? '1 Modell' : `${length} Modelle`
+  const preview = images.slice(0, 3)
+  const extra = Math.max(0, length - preview.length)
+  const listItems =
+    items.length > 0
+      ? items
+      : images.map((image, i) => ({
+          id: `img-${i}`,
+          name: `Modell ${i + 1}`,
+          image,
+          color: null as string | null,
+          color_code: null as string | null,
+          size: '—'
+        }))
 
   const ui = (
     <div
@@ -66,20 +68,13 @@ export function KioskFittingDock ({
               <p className='text-sm font-semibold text-white/80'>
                 Auswahl · {countLabel}
               </p>
-              <button
-                type='button'
-                onClick={onClearAll}
-                className='inline-flex min-h-9 touch-manipulation items-center rounded-full border border-white/14 bg-white/5 px-3 text-[12px] font-semibold text-white/75 transition hover:bg-white/10 hover:text-white'
-              >
-                Clear all
-              </button>
             </div>
             <ul className='min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain p-3'>
-              {items.map((item, i) => (
+              {listItems.map((item, i) => (
                 <li
                   key={item.id}
                   role='listitem'
-                  className='flex items-center gap-2.5 rounded-full border border-white/10 bg-zinc-900/80 px-2.5 py-2 pr-2'
+                  className='flex items-center gap-2.5 rounded-full border border-white/10 bg-zinc-900/80 px-2.5 py-2 pr-3'
                 >
                   <span className='inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-xs font-bold text-zinc-950'>
                     {i + 1}
@@ -102,25 +97,9 @@ export function KioskFittingDock ({
                     </p>
                     <p className='truncate text-xs text-white/45'>
                       EU {item.size}
-                      {' · '}
-                      {item.status?.trim() || 'Im Geschäft verfügbar'}
+                      {item.color ? ` · ${item.color}` : ''}
                     </p>
                   </div>
-                  <button
-                    type='button'
-                    aria-label='Entfernen'
-                    onClick={() => onRemove(item.id)}
-                    className='inline-flex h-9 w-9 shrink-0 touch-manipulation items-center justify-center rounded-full text-white/50 transition hover:bg-white/8 hover:text-white'
-                  >
-                    <svg width='14' height='14' viewBox='0 0 24 24' fill='none' aria-hidden>
-                      <path
-                        d='M6 6l12 12M18 6L6 18'
-                        stroke='currentColor'
-                        strokeWidth='2'
-                        strokeLinecap='round'
-                      />
-                    </svg>
-                  </button>
                 </li>
               ))}
             </ul>
@@ -134,25 +113,23 @@ export function KioskFittingDock ({
         >
           <div className='flex min-w-0 flex-1 items-center gap-2.5'>
             <div className='flex shrink-0 items-center pl-0.5'>
-              {preview.map((item, i) => (
+              {preview.map((src, i) => (
                 <div
-                  key={item.id}
+                  key={`${src}-${i}`}
                   className='relative h-9 w-9 overflow-hidden rounded-full bg-zinc-900 ring-2 ring-zinc-950 sm:h-10 sm:w-10'
                   style={{
                     marginLeft: i === 0 ? 0 : -10,
                     zIndex: preview.length - i
                   }}
                 >
-                  {item.image ? (
-                    <Image
-                      src={item.image}
-                      alt=''
-                      fill
-                      className='object-contain p-1'
-                      sizes='40px'
-                      unoptimized={!canOptimizeShoeImage(item.image)}
-                    />
-                  ) : null}
+                  <Image
+                    src={src}
+                    alt=''
+                    fill
+                    className='object-contain p-1'
+                    sizes='40px'
+                    unoptimized={!canOptimizeShoeImage(src)}
+                  />
                 </div>
               ))}
               {extra > 0 ? (
