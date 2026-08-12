@@ -247,6 +247,12 @@ export function KioskTopShoeCard ({
           <span className='inline-flex min-h-9 items-center rounded-full border border-emerald-400/35 bg-emerald-500/10 px-3 py-1.5 text-[12px] font-semibold text-emerald-100 sm:min-h-10 sm:text-[13px]'>
             {formatStockLabel(stock)}
           </span>
+          {typeof card.partner_available === 'number' &&
+          card.partner_available > 0 ? (
+            <span className='inline-flex min-h-9 items-center rounded-full border border-emerald-400/35 bg-emerald-500/10 px-3 py-1.5 text-[12px] font-semibold tabular-nums text-emerald-100 sm:min-h-10 sm:text-[13px]'>
+              {card.partner_available} verfügbar
+            </span>
+          ) : null}
         </div>
 
         <KioskCardMatchAndSpecs card={card} />
@@ -402,6 +408,13 @@ export function KioskCompactShoeCard ({ card, onOpen }: CompactProps) {
             EU {sizeLabel}
           </span>
         </div>
+
+        {typeof card.partner_available === 'number' &&
+        card.partner_available > 0 ? (
+          <p className='text-[12px] font-semibold tabular-nums text-emerald-300 sm:text-[13px]'>
+            {card.partner_available} verfügbar
+          </p>
+        ) : null}
 
         <KioskCardMatchAndSpecs card={card} />
 
